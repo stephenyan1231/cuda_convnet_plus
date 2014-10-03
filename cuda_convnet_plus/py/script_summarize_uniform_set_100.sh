@@ -1,1 +1,0 @@
-python shownet.py -f  /home/yzc/yzc/proj/cnn-image-enhance/data/uniform_set_100_xpro/convnet_checkpoints/ConvNet__2014-10-02_07.04.48yzyu-server4  --show-cost=costlayer --cost-idx=0  --show-layer-weights-biases=0
