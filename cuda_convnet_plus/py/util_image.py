@@ -1,3 +1,5 @@
+'''Copyright (c) 2014 Zhicheng Yan (zhicheng.yan@live.com)
+'''
 import os
 import sys
 import numpy as np
@@ -17,11 +19,8 @@ import tifffile as tiff
 class UtilImageError(Exception):
     pass
 
-# CENTRAL_PX_FEATURE_DIM = 3 + 3 * 3 + 3 * 2 + 3 * 4
-# CENTRAL_PX_FEATURE_DIM = 3 + 3 * 3 + 3 * 2
-# CENTRAL_PX_FEATURE_DIM = 3 + 3 * 3
-CENTRAL_PX_FEATURE_DIM = 3
 
+CENTRAL_PX_FEATURE_DIM = 3
 CENTRAL_PX_COLOR_DIM = 3
 CENTRAL_PX_MOMENTS_DIM = 3 * 3
 CENTRAL_PX_GRAD_VECTOR_DIM = 3 * 2
@@ -30,7 +29,7 @@ CENTRAL_PX_BLOCK_CORRELATION_DIM = 3 * 4
 
 
 
-# undo gamma correction
+''' undo gamma correction '''
 def linearize_ProPhotoRGB(pp_rgb, reverse=False):
     if not reverse:
         gamma = 1.8
@@ -38,14 +37,15 @@ def linearize_ProPhotoRGB(pp_rgb, reverse=False):
         gamma = 1.0/1.8
     pp_rgb = np.power(pp_rgb, gamma)
     return pp_rgb
-
+'''
 def linearize_SRGB(srgb):
     gamma = 2.2  # use approximation
-    return np.power(srgb, gamma)  
+    return np.power(srgb, gamma) 
 
 def gamma_correction_SRGB(srgb):
     gamma = 2.2
-    return np.power(srgb, 1.0 / gamma)  
+    return np.power(srgb, 1.0 / gamma)
+'''  
 
 def XYZ_chromatic_adapt(xyz, src_white='D65', dest_white='D50'):
     if src_white == 'D65' and dest_white == 'D50':
@@ -65,6 +65,7 @@ def XYZ_chromatic_adapt(xyz, src_white='D65', dest_white='D50'):
     xyz = np.transpose(np.dot(M, np.transpose(xyz.reshape((sp[0] * sp[1], 3)))))
     return xyz.reshape((sp[0], sp[1], 3))
 
+'''
 # white reference is 'D65'
 def SRGB2XYZ(src, dir='forward'):
     if dir == 'forward':
@@ -78,13 +79,11 @@ def SRGB2XYZ(src, dir='forward'):
     else:
         raise UtilImageError('unknown direction: %s' % dir)
     M = np.array(M) 
-#         M=[[0.4360747, 0.3850649,  0.1430804],\
-#            [0.2225045,  0.7168786,  0.0606169],\
-#            [0.0139322,  0.0971045,  0.7141733]]
     sp = src.shape
     assert sp[2] == 3
     dest = np.transpose(np.dot(M, np.transpose(src.reshape((sp[0] * sp[1], 3)))))
     return dest.reshape((sp[0], sp[1], 3))
+'''
 
 # pp_rgb float in range [0,1]
 # refernce white is D50
@@ -98,26 +97,11 @@ def ProPhotoRGB2XYZ(pp_rgb,reverse=False):
              [-0.54459882,  1.5081673,   0.02053511],\
              [ 0,          0,          1.21181275]]
     M = np.array(M)
-    # clipping
     sp = pp_rgb.shape
-    assert sp[2] == 3
     xyz = np.transpose(np.dot(M, np.transpose(pp_rgb.reshape((sp[0] * sp[1], sp[2])))))
     return xyz.reshape((sp[0], sp[1], 3))
 
-# # white reference 'D65'
-# def LAB2sRGB(lab):
-#     M = [[0.4124564, 0.3575761, 0.1804375], \
-#        [0.2126729, 0.7151522, 0.0721750], \
-#        [0.0193339, 0.1191920, 0.9503041]]
-#     M = np.array(M)
-#     sp=lab.shape
-#     assert sp[2]==3
-#     srgb=np.transpose(np.dot(M,np.transpose(lab.reshape((sp[0]*sp[1],3)))))
-#     gamma=2.2
-#     srgb=np.power(srgb,1.0/gamma)
-    
-
-# normalize L channel so that minimum of L is 0 and maximum of L is 100
+''' normalize L channel so that minimum of L is 0 and maximum of L is 100 '''
 def normalize_Lab_image(lab_image):
     h, w, ch = lab_image.shape[0], lab_image.shape[1], lab_image.shape[2]
     assert ch == 3
@@ -133,30 +117,28 @@ def normalize_Lab_image(lab_image):
 
    
 
-# white reference 'D65'
+''' white reference 'D65' '''
 def read_tiff_16bit_img_into_XYZ(tiff_fn, exposure=0):
     pp_rgb = tiff.imread(tiff_fn)
     pp_rgb = np.float64(pp_rgb) / (2 ** 16 - 1.0) 
+    if not pp_rgb.shape[2] == 3:
+        print 'pp_rgb shape',pp_rgb.shape
+        raise UtilImageError('image channel number is not 3')
     pp_rgb = linearize_ProPhotoRGB(pp_rgb)
     pp_rgb *= np.power(2, exposure)
     xyz = ProPhotoRGB2XYZ(pp_rgb)
     xyz = XYZ_chromatic_adapt(xyz, src_white='D50', dest_white='D65')
     return xyz
 
-# white reference 'D65'
+''' white reference 'D65' '''
 def read_tiff_16bit_img_into_LAB(tiff_fn, exposure=0, normalize_Lab=False):
-#     pp_rgb = tiff.imread(tiff_fn)
-#     pp_rgb = np.single(pp_rgb) / (2 ** 16 - 1.0)
-#     pp_rgb = linearize_ProPhotoRGB(pp_rgb)
-#     pp_rgb *= np.power(2, exposure)
-#     xyz = ProPhotoRGB2XYZ(pp_rgb)
-#     xyz = XYZ_chromatic_adapt(xyz, src_white='D50', dest_white='D65')
     xyz = read_tiff_16bit_img_into_XYZ(tiff_fn, exposure)
     lab = color.xyz2lab(xyz)
     if normalize_Lab:
         normalize_Lab_image(lab)
     return lab
 
+'''
 def saveLabIntoTiff16bitImg(tiff_fn,imgLab):
     imgXyz=color.lab2xyz(imgLab)
     imgXyz=XYZ_chromatic_adapt(imgXyz,src_white='D65', dest_white='D50')
@@ -168,6 +150,7 @@ def saveLabIntoTiff16bitImg(tiff_fn,imgLab):
     idx=np.nonzero(pp_rgb>=(2**16))
     pp_rgb[idx[0],idx[1],idx[2]]=(2**16-1)
     tiff.imsave(tiff_fn,np.uint16(pp_rgb))
+'''
     
 # white reference 'D65'
 def read_tiff_16bit_img_into_sRGB(tiff_fn, exposure=0):
@@ -175,12 +158,11 @@ def read_tiff_16bit_img_into_sRGB(tiff_fn, exposure=0):
     sRGb = color.xyz2rgb(xyz)
     return sRGb 
 
-
+'''
 def read_sRGB_8bit_img(sRGB_fn):
     # already undo gamma correction in scipy.misc.imread
     sRGB = scipy.misc.imread(sRGB_fn)
     sRGB = np.single(sRGB) / (2 ** 8 - 1.0)
-#     sRGB = linearize_SRGB(sRGB)
     return sRGB
 
 # white reference 'D65'
@@ -190,29 +172,17 @@ def save_image_sRGB_into_sRGB(img_path, srgb):
     srgb[idx1[0], idx1[1], idx1[2]] = 0
     srgb[idx2[0], idx2[1], idx2[2]] = 1    
     scipy.misc.imsave(img_path, srgb)
+'''
 
-# white reference 'D65'
+''' white reference 'D65' '''
 def save_image_LAB_into_sRGB(img_path, lab):
     lab = np.float64(lab)
     srgb = color.lab2rgb(lab)
-#     mpplot.figure()
-#     mpplot.subplot(3,1,1)
-#     mpplot.hist(lab[:,:,0].flatten(),100)
-#     mpplot.subplot(3,1,2)
-#     mpplot.hist(lab[:,:,1].flatten(),100)
-#     mpplot.subplot(3,1,3)
-#     mpplot.hist(lab[:,:,2].flatten(),100)
-#     mpplot.show()
-#     print 'lab dtype value',lab.dtype,lab[0,:3,:]
-
     # clamping to [0,1]
     idx1, idx2 = np.nonzero(srgb < 0), np.nonzero(srgb > 1)
     srgb[idx1[0], idx1[1], idx1[2]] = 0
     srgb[idx2[0], idx2[1], idx2[2]] = 1
     scipy.misc.imsave(img_path, srgb)
-
-
-    
 
 def clamp_lab_img(img_lab):
     l, a, b = img_lab[:, :, 0], img_lab[:, :, 1], img_lab[:, :, 2]
@@ -233,21 +203,9 @@ def read_img(img_path):
     return np.single(lab)
     
 
-def save_img(img_path, lab):
-#     l=lab[:,:,0]
-#     a,b=lab[:,:,1],lab[:,:,1]
-#     mpplot.figure()
-#     mpplot.subplot(3,1,1)
-#     mpplot.hist(l.flatten(),100)
-#     mpplot.subplot(3,1,2)
-#     mpplot.hist(a.flatten(),100)
-#     mpplot.subplot(3,1,3)
-#     mpplot.hist(b.flatten(),100)
-#     mpplot.show()
-    
+def save_img(img_path, lab):   
     lab = clamp_lab_img(lab)    
     rgb = color.lab2rgb(np.float64(lab))
-#     print 'rgb shape dtype',rgb.shape,rgb.dtype
     print 'rgb min max', np.min(rgb[:, :, 0]), np.max(rgb[:, :, 0]), \
     np.min(rgb[:, :, 1]), np.max(rgb[:, :, 1]), np.min(rgb[:, :, 2]), np.max(rgb[:, :, 2])
     
@@ -272,8 +230,6 @@ def get_central_pixel_moments(batch_img, nb_hs):
         for dx in range(-nb_hs, nb_hs + 1):
             mean += batch_img[:, ct_y + dy, ct_x + dx, :]
     mean /= nb_sz ** 2
-    
-#     print 'mean min,max:%f %f' % (np.min(mean), np.max(mean))        
 
     # standard deviation
     std_dev = np.zeros((ch, num_imgs), dtype=np.single)
@@ -281,7 +237,6 @@ def get_central_pixel_moments(batch_img, nb_hs):
         for dx in range(-nb_hs, nb_hs + 1):
             std_dev += np.square(batch_img[:, ct_y + dy, ct_x + dx, :] - mean)
     std_dev = np.sqrt(std_dev / (nb_sz ** 2 - 1))
-#     print 'std_dev min,max,mean:%f %f %f' % (np.min(std_dev), np.max(std_dev),np.mean(std_dev))
       
     # skewness
     skew = np.zeros((ch, num_imgs), dtype=np.single)
@@ -290,7 +245,6 @@ def get_central_pixel_moments(batch_img, nb_hs):
             skew += np.power(np.divide(batch_img[:, ct_y + dy, ct_x + dx, :] - mean, std_dev), 3)
     skew = np.nan_to_num(skew)
     skew /= nb_sz ** 2
-#     print 'skew min,max:%f %f' % (np.min(skew), np.max(skew))
       
     return np.concatenate((mean, std_dev, skew), axis=0)
 
@@ -380,94 +334,6 @@ def get_central_pixel_feature(batch_img, nb_hs):
     
     # extrac central pixel color
     ct_pix_color = batch_img[:, ct_y, ct_x, :]
-    
-#     # compute mean
-#     mean = np.zeros((ch, num_imgs), dtype=np.single)
-#     for dy in range(-nb_hs, nb_hs + 1):
-#         for dx in range(-nb_hs, nb_hs + 1):
-#             mean += batch_img[:, ct_y + dy, ct_x + dx, :]
-#     mean /= nb_sz ** 2
-# #     print 'mean min,max:%f %f' % (np.min(mean), np.max(mean))
-#      
-#     # standard deviation
-#     std_dev = np.zeros((ch, num_imgs), dtype=np.single)
-#     for dy in range(-nb_hs, nb_hs + 1):
-#         for dx in range(-nb_hs, nb_hs + 1):
-#             std_dev += np.square(batch_img[:, ct_y + dy, ct_x + dx, :] - mean)
-#     std_dev = np.sqrt(std_dev / (nb_sz ** 2 - 1))
-# #     print 'std_dev min,max,mean:%f %f %f' % (np.min(std_dev), np.max(std_dev),np.mean(std_dev))
-#      
-#     # skewness
-#     skew = np.zeros((ch, num_imgs), dtype=np.single)
-#     for dy in range(-nb_hs, nb_hs + 1):
-#         for dx in range(-nb_hs, nb_hs + 1):
-#             skew += np.power(np.divide(batch_img[:, ct_y + dy, ct_x + dx, :] - mean, std_dev), 3)
-#     skew = np.nan_to_num(skew)
-#     skew /= nb_sz ** 2
-# #     print 'skew min,max:%f %f' % (np.min(skew), np.max(skew))
-#      
-#      
-#     # 2D gradient vector for each RGB (or LAB channel)
-#     right, left = batch_img[:, ct_y, ct_x + 1, :], batch_img[:, ct_y, ct_x - 1, :]
-#     top, bottom = batch_img[:, ct_y + 1, ct_x, :], batch_img[:, ct_y - 1, ct_x, :]
-#     x_grad, y_grad = (right - left) / np.single(2.0), (top - bottom) / np.single(2.0)
-#      
-#     # for central pixel, compute RGB correlation between central patch and left/right/up/down 1-pixel shifted patch
-#     c_mean = np.zeros((ch, num_imgs), dtype=np.single)
-#     r_mean = np.zeros((ch, num_imgs), dtype=np.single)
-#     l_mean = np.zeros((ch, num_imgs), dtype=np.single)
-#     t_mean = np.zeros((ch, num_imgs), dtype=np.single)
-#     b_mean = np.zeros((ch, num_imgs), dtype=np.single)
-#     for dy in range(-nb_hs, nb_hs + 1):
-#         for dx in range(-nb_hs, nb_hs + 1):
-#             c_mean += batch_img[:, ct_y + dy, ct_x + dx, :]
-#             r_mean += batch_img[:, ct_y + dy, ct_x + dx + 1, :]
-#             l_mean += batch_img[:, ct_y + dy, ct_x + dx - 1, :]
-#             t_mean += batch_img[:, ct_y + dy + 1, ct_x + dx, :]
-#             b_mean += batch_img[:, ct_y + dy - 1, ct_x + dx, :]
-#     c_mean /= nb_sz ** 2
-#     r_mean /= nb_sz ** 2
-#     l_mean /= nb_sz ** 2
-#     t_mean /= nb_sz ** 2
-#     b_mean /= nb_sz ** 2
-#      
-#     c_std_dev = np.zeros((ch, num_imgs), dtype=np.single)
-#     r_std_dev = np.zeros((ch, num_imgs), dtype=np.single)
-#     l_std_dev = np.zeros((ch, num_imgs), dtype=np.single)
-#     t_std_dev = np.zeros((ch, num_imgs), dtype=np.single)
-#     b_std_dev = np.zeros((ch, num_imgs), dtype=np.single)
-#     for dy in range(-nb_hs, nb_hs + 1):
-#         for dx in range(-nb_hs, nb_hs + 1):
-#             c_std_dev += np.square(batch_img[:, ct_y + dy, ct_x + dx, :] - c_mean)
-#             r_std_dev += np.square(batch_img[:, ct_y + dy, ct_x + dx + 1, :] - r_mean)
-#             l_std_dev += np.square(batch_img[:, ct_y + dy, ct_x + dx - 1, :] - l_mean)
-#             t_std_dev += np.square(batch_img[:, ct_y + dy + 1, ct_x + dx, :] - t_mean)
-#             b_std_dev += np.square(batch_img[:, ct_y + dy - 1, ct_x + dx, :] - b_mean)    
-#      
-#     cr_corre = np.zeros((ch, num_imgs), dtype=np.single)
-#     cl_corre = np.zeros((ch, num_imgs), dtype=np.single)
-#     ct_corre = np.zeros((ch, num_imgs), dtype=np.single)
-#     cb_corre = np.zeros((ch, num_imgs), dtype=np.single)
-#     for dy in range(-nb_hs, nb_hs + 1):
-#         for dx in range(-nb_hs, nb_hs + 1):
-#             c = np.divide(batch_img[:, ct_y + dy, ct_x + dx, :] - c_mean, c_std_dev)
-#             r = np.divide(batch_img[:, ct_y + dy, ct_x + dx + 1, :] - r_mean, r_std_dev)
-#             l = np.divide(batch_img[:, ct_y + dy, ct_x + dx - 1, :] - l_mean, l_std_dev)
-#             t = np.divide(batch_img[:, ct_y + dy + 1, ct_x + dx, :] - t_mean, t_std_dev)
-#             b = np.divide(batch_img[:, ct_y + dy - 1, ct_x + dx, :] - b_mean, b_std_dev)
-#             cr_corre += c * r
-#             cl_corre += c * l
-#             ct_corre += c * t
-#             cb_corre += c * b
-#     cr_corre = np.nan_to_num(cr_corre / (nb_sz ** 2 - 1))
-#     cl_corre = np.nan_to_num(cl_corre / (nb_sz ** 2 - 1))
-#     ct_corre = np.nan_to_num(ct_corre / (nb_sz ** 2 - 1))
-#     cb_corre = np.nan_to_num(cb_corre / (nb_sz ** 2 - 1))
-#      
-#      
-#     return np.concatenate((mean, std_dev, skew, x_grad, y_grad, cr_corre, cl_corre, ct_corre, cb_corre), \
-#                            axis=0)
-
     return ct_pix_color;
 
 
@@ -516,7 +382,6 @@ def get_color_moment(img, nb_hs, ret=None):
         for dx in range(-nb_hs, nb_hs + 1):
             mean += expanded_img[nb_hs + dy:nb_hs + dy + h, nb_hs + dx:nb_hs + dx + w, :]
     mean /= nb_sz ** 2
-#     print 'mean max,min:%f %f' % (np.max(mean), np.min(mean))
         
     # standard deviation
     accu = np.zeros((h, w, ch), dtype=np.single)
@@ -533,9 +398,6 @@ def get_color_moment(img, nb_hs, ret=None):
     std_dev_2 = np.sqrt(accu / (nb_sz ** 2))
     idx = np.nonzero(std_dev_2 == 0)
     std_dev_2[idx[0], idx[1], idx[2]] = 1  # avoid zero division
-#     print 'across entire image, std_dev_2 max,min,mean:%f %f %f' \
-#     % (np.max(std_dev_2), np.min(std_dev_2),np.mean(std_dev_2))
-    
     
     # skewness
     if ret == None:
@@ -549,10 +411,8 @@ def get_color_moment(img, nb_hs, ret=None):
                       std_dev_2) ** 3
     skew /= nb_sz ** 2
     skew = np.nan_to_num(skew)
-#     print 'skew max,min:%f %f' % (np.max(skew), np.min(skew))
     
     elapsed_tm = time.time() - stTime
-#     print 'get_color_moment elapsed time:%f' % elapsed_tm
     
     if ret == None:
         return np.concatenate((mean, std_dev, skew), axis=2)
@@ -672,44 +532,24 @@ def get_color_correlation(img, nb_hs):
 
 # get features for all pixels in the image 
 def get_pixel_feature(img, nb_hs, ret=None):
-    if 1:  
-        if ret == None:
-            color = img
-            return color
-#             moments = get_color_moment(img, nb_hs)
-#             return np.concatenate((color, moments), axis=2)
-    #         gradients = get_color_gradient(img)
-    #         return np.concatenate((color, moments, gradients), axis=2)    
-        else:
-            assert ret.shape[2] == CENTRAL_PX_FEATURE_DIM
-            ret[:, :, :CENTRAL_PX_COLOR_DIM] = img
-#             get_color_moment\
-#             (img, nb_hs, ret[:, :, CENTRAL_PX_COLOR_DIM:CENTRAL_PX_COLOR_DIM + CENTRAL_PX_MOMENTS_DIM])
-    #         get_color_gradient\
-    #         (img,ret[:,:,CENTRAL_PX_COLOR_DIM+CENTRAL_PX_MOMENTS_DIM:CENTRAL_PX_COLOR_DIM+CENTRAL_PX_MOMENTS_DIM+CENTRAL_PX_GRAD_VECTOR_DIM])
-            return ret
+    if ret == None:
+        color = img
+        return color
     else:
-        h, w, ch = img.shape[0], img.shape[1], img.shape[2]
-        px, py = np.meshgrid(range(w), range(h))
-        px, py = px.flatten(), py.flatten()
-        if not ret == None:
-            assert ret.shape[2] == CENTRAL_PX_FEATURE_DIM
-            ret = ret.reshape((h * w, CENTRAL_PX_FEATURE_DIM))
-        ftr = get_pixel_feature_v2(img, px, py, nb_hs, ret)
-        return ftr
-            
+        assert ret.shape[2] == CENTRAL_PX_FEATURE_DIM
+        ret[:, :, :CENTRAL_PX_COLOR_DIM] = img
+        return ret
 
-# get features for all pixel in the input/output(enhanced) image
+
+''' get features for all pixel in the input/output(enhanced) image '''
 def get_img_pixels(in_args):
-    in_img_path, out_img_path, paras = in_args[0], in_args[1], in_args[2] 
+    img_nm, paras = in_args[0], in_args[1] 
     
-    in_img_dir, out_img_dir, nb_hs, fredo_image_processing\
- = paras['in_img_dir'], paras['enh_img_dir'], paras['nb_hs'], \
+    in_img_dir, out_img_dir, fredo_image_processing\
+    = paras['in_img_dir'], paras['enh_img_dir'], \
     paras['fredo_image_processing']
-    in_img_path = os.path.join(in_img_dir, in_img_path)
-    out_img_path = os.path.join(out_img_dir, out_img_path)
+    in_img_path = os.path.join(in_img_dir, img_nm + '.tif')
     
-#     print 'in_img_path', in_img_path
     if fredo_image_processing == 1:
         in_img_px = read_tiff_16bit_img_into_LAB(in_img_path, 1.5, False)
     else:
@@ -779,23 +619,14 @@ def get_color_gradient_v2(img, pos_x, pos_y, ret=None):
         ret[:, 3:6] = (top[pos_y, pos_x, :] - bottom[pos_y, pos_x, :]) * 0.5
         return ret
 # accept a list pixels position
-def get_pixel_feature_v2(img, pos_x, pos_y, nb_hs, ret=None):
+def get_pixel_feature_v2(img, pos_x, pos_y, ret=None):
     if ret == None:
         color = img[pos_y, pos_x, :]
         return color
-#         moments = get_color_moments_v2(img, pos_x, pos_y, nb_hs)
-#         return np.concatenate((color, moments), axis=1)        
-#         gradients = get_color_gradient_v2(img, pos_x, pos_y)
-#         return np.concatenate((color, moments, gradients), axis=1)
     else:
         assert ret.shape[1] == CENTRAL_PX_FEATURE_DIM
         ret[:, :CENTRAL_PX_COLOR_DIM] = img[pos_y, pos_x, :]
-#         get_color_moments_v2(img, pos_x, pos_y, nb_hs, ret[:, CENTRAL_PX_COLOR_DIM:CENTRAL_PX_COLOR_DIM + CENTRAL_PX_MOMENTS_DIM])
-#         get_color_gradient_v2\
-#         (img, pos_x, pos_y,\
-#          ret[:,CENTRAL_PX_COLOR_DIM+CENTRAL_PX_MOMENTS_DIM:CENTRAL_PX_COLOR_DIM+CENTRAL_PX_MOMENTS_DIM+CENTRAL_PX_GRAD_VECTOR_DIM]) 
         return ret
-        
 
 def getPixLocalContextV2Helper(in_args):
     pix_x, pix_y, integral_map, paras, ftr = \
@@ -807,7 +638,6 @@ def getPixLocalContextV2Helper(in_args):
     num_hist = ftr_dim / hist_bin_num
     
     st_time = time.time()
-#     ftr = np.zeros((num_pixs, num_hist), dtype=np.single)
     for i in range(num_pixs):
         left = offsets[0, :] + pix_x[i] - 1
         top = offsets[1, :] + pix_y[i] - 1
@@ -816,11 +646,9 @@ def getPixLocalContextV2Helper(in_args):
         ftr[i, :] = integral_map[bottom, right] + integral_map[top, left]\
         - integral_map[bottom, left] - integral_map[top, right]
     ftr /= area_pix_num[np.newaxis, :]
-#     elapsed = time.time()-st_time
-#     print 'elapsed',elapsed
     return ftr
 
-# pixX,pixX should be pre-increased by 100 (appending width)
+''' pixX,pixX should be pre-increased by 100 (appending width) '''
 def getPixContextSem(in_args):
     pix_x, pix_y, integral_map, paras, pool, ftr = \
     in_args[0], in_args[1], in_args[2], in_args[3], in_args[4], in_args[5]
@@ -828,12 +656,7 @@ def getPixContextSem(in_args):
     ftr_dim, offsets, hist_bin_num, area_pix_num = \
     paras['ftr_dim'], paras['offsets'], paras['label_num'], paras['area_pix_num']
     num_pixs = pix_x.shape[0]
-#     print 'num_pixs',num_pixs,'hist_bin_num',hist_bin_num
-
-#         print 'tag1 ftr shape ',ftr.shape
-#     print 'len pix',pix_x.shape
-#     print 'integral_map shape', integral_map[0].shape
-
+    
     if not pool == None:
         num_parts = 16
         part_size = num_pixs / num_parts
@@ -841,7 +664,6 @@ def getPixContextSem(in_args):
         end = [s + part_size for s in start]
         end[num_parts - 1] = num_pixs
         assert len(start) == num_parts
-#         print 'part_size', part_size, 'start', start,'end',end    
         pix_x2, pix_y2 = [None] * num_parts, [None] * num_parts
         for i in range(num_parts):
             pix_x2[i] = pix_x[start[i]:end[i]]
@@ -853,44 +675,21 @@ def getPixContextSem(in_args):
             results = pool.map(getPixContextSem, func_args, num_parts / 4)
         except UtilImageError, e:
             print e        
-#         print 'results len',len(results) 
-        st_time = time.time()
         for i in range(num_parts):
             ftr[start[i]:end[i], :] = results[i]
-        elapsed_t1 = time.time() - st_time
-#         print 'elapsed_t1',elapsed_t1
-#         ftr = np.vstack(results)
-#         print 'tag2 ftr shape', ftr.shape
-#         print np.sum(ftr[0,:].reshape((25,20)),axis=1)
     else:
-#         print 'sequential process'
-#         print 'tag2 ftr shape', ftr.shape
-        st_time = time.time()
         if ftr == None:
             ftr = np.zeros((num_pixs, ftr_dim), dtype=np.single)
-#         print 'ftr shape',ftr.shape
-        elapsed_t3 = time.time() - st_time
-#         print 'elapsed_t3',elapsed_t3
-#         print 'offsets shape, dtype',offsets.shape,offsets.dtype
-        st_time = time.time()
         for i in range(num_pixs):
             left = offsets[0, :] + pix_x[i] - 1
             top = offsets[1, :] + pix_y[i] - 1
             right = offsets[2, :] + pix_x[i]
             bottom = offsets[3, :] + pix_y[i]
-#             print 'left dtype',left.dtype
-#             print 'left',left,'top',top,'right',right,'bottom',bottom
             for j in range(hist_bin_num):
                 i_map = integral_map[j]
-#                 print 'i_map shape',i_map.shape
                 ftr[i, j::hist_bin_num] = i_map[bottom, right] + i_map[top, left]\
-                - i_map[bottom, left] - i_map[top, right]
-#                 tmp = i_map[bottom, right] + i_map[top, left]\
-#                 - i_map[bottom, left] - i_map[top, right]            
-#                 sys.exit()    
+                - i_map[bottom, left] - i_map[top, right]   
                 ftr[i, j::hist_bin_num] = ftr[i, j::hist_bin_num] / area_pix_num
-        elapsed_t2 = time.time() - st_time
-#         print 'elapsed_t2',elapsed_t2
     return ftr
 
 
@@ -912,7 +711,6 @@ def getPixLocContextV2(in_args):
     for i in range(hist_bin_num):
         l_ftr[i] = ftr[:, :, i]
     
-    st_time = time.time()
     func_args = zip([pix_x] * hist_bin_num, [pix_y] * hist_bin_num, integral_map, [paras] * hist_bin_num, l_ftr)
     num_proc = hist_bin_num if num_proc > hist_bin_num else num_proc
     try:
@@ -920,39 +718,31 @@ def getPixLocContextV2(in_args):
     except UtilImageError, e:
         print 'exception is found'
         print e
-#     elapsed_t1=time.time()-st_time
-#     print 'elapsed_t1',elapsed_t1
-    st_time = time.time()
     for i in range(hist_bin_num):
         ftr[:, :, i] = results[i]          
     ftr = ftr.reshape((num_pixs, num_hist * hist_bin_num))
   
-#     elapse_t2=time.time()-st_time
-#     print 'elapse_t2',elapse_t2
+
 def get_pixel_local_context_mean_color_helper(in_args):
-    
-    # ftr shape: (num_pixs,pool_region_num)
-    pix_x, pix_y, integral_map, paras, ftr = \
+    '''ftr shape: (num_pixs,pool_region_num,3)'''
+    pix_x, pix_y, color_itg_map, paras, ftr = \
     in_args[0], in_args[1], in_args[2], in_args[3], in_args[4]
     
     num_pixs = pix_x.shape[0]
     
     offsets, area_pix_num = paras['offsets'], paras['area_pix_num']
-#     print 'offsets shape',offsets.shape
-#     print 'integral_map shape',integral_map.shape
     for i in range(num_pixs):
         left = offsets[0, :] + pix_x[i] - 1
         top = offsets[1, :] + pix_y[i] - 1
         right = offsets[2, :] + pix_x[i]
         bottom = offsets[3, :] + pix_y[i]
-        ftr[i, :] = integral_map[bottom, right] + integral_map[top, left]\
-        - integral_map[bottom, left] - integral_map[top, right]
-    ftr /= area_pix_num[np.newaxis, :]
-    return ftr
+        ftr[i, :, :] = color_itg_map[bottom, right,:] + color_itg_map[top, left,:]\
+        - color_itg_map[bottom, left,:] - color_itg_map[top, right,:]
+    ftr /= area_pix_num[np.newaxis, :,np.newaxis]
+    return ftrgetPixContextColorFtr
     
 def get_pixel_local_context_mean_color(in_args):
-    # integral_map shape: (3)
-    pix_x, pix_y, integral_map, paras, pool, ftr = \
+    pix_x, pix_y, color_itg_map, paras, pool, ftr = \
     in_args[0], in_args[1], in_args[2], in_args[3], in_args[4], in_args[5]
     
     offsets, pool_region_num, area_pix_num = \
@@ -965,7 +755,7 @@ def get_pixel_local_context_mean_color(in_args):
     for i in range(3):
         l_ftr[i] = ftr[:, :, i]
     
-    func_args = zip([pix_x] * 3, [pix_y] * 3, integral_map, [paras] * 3, \
+    func_args = zip([pix_x] * 3, [pix_y] * 3, color_itg_map, [paras] * 3, \
                     l_ftr)
     try:
         results = pool.map(get_pixel_local_context_mean_color_helper, func_args)
@@ -975,31 +765,23 @@ def get_pixel_local_context_mean_color(in_args):
     for i in range(3):
         ftr[:, :, i] = results[i]
     ftr = ftr.reshape((num_pixs, pool_region_num * 3))
+
+def getPixContextColorFtr(pixX, pixY, colorIntegralMap, paras):  
+    offsets, area_pix_num = paras['offsets'], paras['area_pix_num']     
+    n_pix, n_region = pixX.shape[0], offsets.shape[1]
     
-# pixX,pixX should be pre-increased by 100 (appending width)
-def getPixContextColorFtr(pixX, pixY, pixSem, colorIntegralMap, pixNumIntegralMap,paras):  
-    # colorFtr shape: (numPix,pool_region_num)   
-    offsets, areaPixNum = paras['offsets'], paras['area_pix_num']     
-    numPix, regionNum = pixX.shape[0], offsets.shape[1]
-    
-    colorFtr = np.zeros((numPix, regionNum, 3))
-    pixNumFtr = np.zeros((numPix, regionNum))
-    for i in range(numPix):
-        sem = pixSem[i]
+    colorFtr = np.zeros((n_pix, n_region, 3))
+    print 'colorIntegralMap shape',colorIntegralMap.shape
+    for i in range(n_pix):
         left = offsets[0, :] + pixX[i] - 1
         top = offsets[1, :] + pixY[i] - 1
         right = offsets[2, :] + pixX[i]
         bottom = offsets[3, :] + pixY[i]
-        colorFtr[i, :, :] = colorIntegralMap[sem, bottom, right, :] + colorIntegralMap[sem, top, left, :]\
-        - colorIntegralMap[sem, bottom, left, :] - colorIntegralMap[sem, top, right, :]
-        pixNumFtr[i, :] = pixNumIntegralMap[sem, bottom, right] + pixNumIntegralMap[sem, top, left]\
-        - pixNumIntegralMap[sem, bottom, left] - pixNumIntegralMap[sem, top, right]        
-#     colorFtr /= area_pix_num[np.newaxis, :]
-    colorFtr = colorFtr.reshape((numPix, regionNum * 3))
-    return colorFtr, pixNumFtr 
-    
-
-
+        colorFtr[i, :, :] = colorIntegralMap[bottom, right, :] + colorIntegralMap[top, left, :]\
+        - colorIntegralMap[bottom, left, :] - colorIntegralMap[top, right, :]
+    colorFtr /= area_pix_num[np.newaxis, :, np.newaxis]
+    colorFtr = colorFtr.reshape((n_pix, n_region * 3))
+    return colorFtr 
 
 def next_4_multiple(val):
     return ((np.int64(val) + 3) / 4) * 4
@@ -1045,10 +827,6 @@ def get_img_lightness_hist(L, range_min=0, range_max=100, bins=50):
     hist1 = np.single(hist1) / np.single(h * w)
     hist2, bin_edges2 = np.histogram(L2.flatten(), bins, range=(range_min, range_max), normed=False)
     hist2 = np.single(hist2) / np.single(h * w)    
-#     print 'bin_edges',bin_edges
-#     print 'sum hist',np.sum(hist)
-#     print 'hist shape',hist.shape
-#     print hist
     return np.concatenate((hist, hist1, hist2))
 
 def get_img_scene_brightness(L, img_path):
@@ -1146,9 +924,6 @@ def get_lightness_detail_weighted_equalization_curve_control_points(L, sigma):
     hist = np.single(hist) / np.sum(grad_mag)
     cumsum_hist = np.cumsum(hist)
     spline, x = get_cum_hist_BSpline_curve(cumsum_hist, 0.0, 100.0, bins)
-#     mpplot.plot(x, cumsum_hist)
-#     mpplot.plot(x, spline(x), '.-')
-#     mpplot.show()
     return spline.get_coeffs()        
 
 def get_highlight_clipping_value(L, percentage):
@@ -1164,11 +939,9 @@ def get_tone_spatial_distribution(L, num_interval):
     for i in range(num_interval):
         idx = np.nonzero((L >= edges[i]) & (L < edges[i + 1]))
         num_pix = len(idx[0])
-#         print 'num_pix', num_pix
         if num_pix > 0:
             cy = np.mean(idx[0])
             cx = np.mean(idx[1])
-#             print 'cx,cy',cx,cy
             std_dev_y = np.sqrt(np.sum((idx[0] - cy) ** 2) / num_pix)
             std_dev_x = np.sqrt(np.sum((idx[1] - cx) ** 2) / num_pix)
             ftr[i, 0] = std_dev_x * std_dev_y / num_pix
@@ -1176,7 +949,6 @@ def get_tone_spatial_distribution(L, num_interval):
         else:
             ftr[i, :] = 0
 
-#     print 'ftr',ftr
     return ftr.reshape((num_interval * 3))
 
 '''compute histogram of background pixels hue
@@ -1185,8 +957,6 @@ semFgBg: (n) semantic label => {0,1} indicate foreground/background
 '''
 def getBackgroundHueHist(imgLab,semMap,semFgBg):
     imgHsv=color.rgb2hsv(color.lab2rgb(imgLab))
-#     print 'hue min max:%f %f' % (np.min(imgHsv[:,:,0]),np.max(imgHsv[:,:,0]))
-#     print imgHsv[:10,:10,0]
     assert imgLab.shape[:2] == semMap.shape
     fgBgMap=semFgBg[semMap]
     bgIdx=np.nonzero(fgBgMap==0)
@@ -1197,7 +967,7 @@ def getBackgroundHueHist(imgLab,semMap,semFgBg):
     return hist
 
 def get_image_global_ftr(in_args):
-    tif_img_path, paras = in_args[0], in_args[1]
+    img_nm, paras = in_args[0], in_args[1]
     if len(in_args)>2:
         bgHueHist = 1
         semMapFile,semFgBg = in_args[2],in_args[3]
@@ -1212,7 +982,7 @@ def get_image_global_ftr(in_args):
         semMap = scipy.io.loadmat(semMap)
         semMap = semMap['responseMap']
 
-    tif_img_path = os.path.join(in_img_dir, tif_img_path)
+    tif_img_path = os.path.join(in_img_dir, img_nm + '.tif')
     if fredo_image_processing == 1:
         Lab_img = read_tiff_16bit_img_into_LAB(tif_img_path, 1.5)
     else:
@@ -1255,14 +1025,6 @@ def get_image_global_ftr(in_args):
         a_spatial_distr = get_tone_spatial_distribution(img_a, 10)
         b_spatial_distr = get_tone_spatial_distribution(img_b, 10)
         L_spatial_distr = np.concatenate((L_spatial_distr, a_spatial_distr, b_spatial_distr))
-#     print lightness_hist,
-#     print scene_brightness
-#     print cp1
-#     print cp2
-#     print cp3
-#     print cp4
-#     print hl_clipping
-#     print L_spatial_distr
     if bgHueHist:
         bgHueHist=getBackgroundHueHist(Lab_img,semMap,semFgBg)
     else:
@@ -1283,67 +1045,12 @@ def get_extended_edge_pixel(edge_pix_x, edge_pix_y, h, w, extend_width):
     idx = np.nonzero(edge_mask)
     return np.array(idx[1]), np.array(idx[0])
     
-    
-#     edge_mask = np.zeros((h, w), dtype=np.bool)
-#     for dy in range(-extend_width, extend_width + 1):
-#         for dx in range(-extend_width, extend_width + 1):
-#             l_edge_pix_y, l_edge_pix_x = edge_pix_y + dy, edge_pix_x + dx
-#             idx = np.nonzero((l_edge_pix_y >= 0) & (l_edge_pix_y < h) & (l_edge_pix_x >= 0) & (l_edge_pix_x < w))
-#             edge_mask[l_edge_pix_y[idx[0]], l_edge_pix_x[idx[0]]] = 1
-#     
-#     idx = np.nonzero(edge_mask)
-#     
-#     return np.array(idx[1]), np.array(idx[0])
-    
-#     edge_pix_y_extended, edge_pix_x_extended = np.array([]), np.array([])
-#     for dy in range(-extend_width, extend_width + 1):
-#         for dx in range(-extend_width, extend_width + 1):
-#             l_edge_pix_y, l_edge_pix_x = edge_pix_y + dy, edge_pix_x + dx
-#             edge_pix_y_extended = np.hstack((edge_pix_y_extended, l_edge_pix_y))
-#             edge_pix_x_extended = np.hstack((edge_pix_x_extended, l_edge_pix_x))            
-#             
-# #             idx = np.nonzero((l_edge_pix_y >= 0) & (l_edge_pix_y < h) & (l_edge_pix_x >= 0) & (l_edge_pix_x < w))
-# #             edge_pix_y_extended = np.hstack((edge_pix_y_extended, l_edge_pix_y[idx[0]]))
-# #             edge_pix_x_extended = np.hstack((edge_pix_x_extended, l_edge_pix_x[idx[0]]))            
-#     edge_pix_y_extended = np.int32(edge_pix_y_extended)
-#     edge_pix_x_extended = np.int32(edge_pix_x_extended)
-#     
-# #     mask_img = np.zeros((h,w,c),dtype=np.uint8)
-# #     mask_img[edge_pix_y_extended,edge_pix_x_extended,:]=255
-# #     mpplot.figure()
-# #     mpplot.imshow(mask_img)
-# #     mpplot.show()
-#     
-#     # get unique (x,y) pairs
-#     uni_xy = {}
-#     for i in range(edge_pix_y_extended.shape[0]):
-#         uni_xy[edge_pix_x_extended[i] + edge_pix_y_extended[i] * w] = True
-# #     print 'unique xy pairs:%d' % len(uni_xy)
-#     uni_xy_vals = np.array(uni_xy.keys())
-#     uni_edge_pix_y_extended, uni_edge_pix_x_extended = \
-#     np.array(uni_xy_vals / w), np.array(uni_xy_vals % w)
-#     
-#     idx = np.nonzero( (uni_edge_pix_y_extended>=0) & (uni_edge_pix_y_extended<h) & (uni_edge_pix_x_extended>=0) & (uni_edge_pix_x_extended<w))
-#     uni_edge_pix_x_extended = uni_edge_pix_x_extended[idx[0]]
-#     uni_edge_pix_y_extended = uni_edge_pix_y_extended[idx[0]]
-# 
-# #     print 'edge_pix_y_extended shape dtype', edge_pix_y_extended.shape, edge_pix_y_extended.dtype
-# #     print 'edge_pix_x_extended shape dtype', edge_pix_x_extended.shape, edge_pix_x_extended.dtype
-# #     print 'uni_edge_pix_y_extended shape dtype', uni_edge_pix_y_extended.shape, \
-# #     uni_edge_pix_y_extended.dtype
-# #     print 'uni_edge_pix_x_extended shape dtype', uni_edge_pix_x_extended.shape, \
-# #     uni_edge_pix_x_extended.dtype
-#     
-#     return  uni_edge_pix_x_extended, uni_edge_pix_y_extended
-    
 def get_affected_pixels_helper(in_args):
     h, w, seg, dilate_width = \
     in_args[0], in_args[1], in_args[2], in_args[3]
     seg = np.array(seg)
     seg_x, seg_y = seg % w, seg / w
-#     print 'seg_x',seg_x
     affected_x, affected_y = get_extended_edge_pixel(seg_x, seg_y, h, w, dilate_width)
-#     print 'affected_x',affected_x
     affected_id = affected_y * w + affected_x
     return affected_id
     
@@ -1362,6 +1069,5 @@ def get_affected_pixels(pool, h, w, img_seg, dilate_width):
             results = pool.map(get_affected_pixels_helper, func_args)
         except UtilImageError, e:
             print e
-#         results = zip(*results)
         affected_ids = results
     return affected_ids

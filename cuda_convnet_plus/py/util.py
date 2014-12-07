@@ -124,7 +124,5 @@ def find_all_occurences(letter,string):
     idx=[ i for i,s_let in enumerate(string) if s_let == letter]
     return idx
 
-# if __name__=='__main__':
-#     batch_size = get_batch_size(3056,100)
-#     print batch_size
-#     print batch_size.shape,batch_size.dtype
+if __name__=='__main__':
+    print 'util.py'

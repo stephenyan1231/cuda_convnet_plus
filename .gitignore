@@ -184,3 +184,6 @@ FakesAssemblies/
 
 # cuda_convnet_plus/py folder
 cuda_convnet_plus/py/*.pyc
+
+# tbb libraries
+tbb43_20141023oss/*

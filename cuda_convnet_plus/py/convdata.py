@@ -26,7 +26,7 @@ import sys
 import os
 import numpy.random as nr
 import numpy as np
-import random as r
+import random
 import time
 
 from options import *
@@ -183,8 +183,6 @@ class LabeledMemoryBatchDataProvider(LabeledDataProvider):
         start = time.time()
         
         if zero_mean_data == 1:
-#             print 'do zero mean data'
-        # self.curr_bat_dat_dic['data'].shape = (numChannel*imgHeight*imgWidth,numImage)
             self.curr_bat_dat_dic['data'] = np.require((self.curr_bat_dat_dic['data'] - self.data_mean), \
                                                     dtype=np.single, requirements='C')        
         else:
@@ -206,7 +204,7 @@ class LabeledMemoryBatchDataProvider(LabeledDataProvider):
             dummy_labels = np.zeros((1, self.curr_bat_dat_dic['data'].shape[1]), dtype=np.single)
             self.curr_bat_dat_dic['labels'] = dummy_labels
             
-        print "elapsed1,elapsed2:%f %f\n" % (elapsed1, elapsed2)
+#         print "elapsed1,elapsed2:%f %f\n" % (elapsed1, elapsed2)
         
         if self.PCA_pixel_alter == 1:
 #             print 'do PCA pixel altering'
@@ -411,102 +409,41 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
                  init_batch_idx=None, epochBatchPerm=None, dp_params={}, test=False):
         LabeledMemoryBatchDataProvider.__init__(self, libModel, data_dir, batch_range, init_epoch,
                  init_batch_idx, epochBatchPerm, dp_params, test)
-        # allow to overwrite dir path in batches.meta via options
-        if 'in_img_dir' in dp_params.keys() and dp_params['in_img_dir']:
-#             print 'MITfivekDataProvider_4 init in_img_dir',dp_params['in_img_dir']
-            self.batch_meta['in_img_dir'] = dp_params['in_img_dir']
-        if 'enh_img_dir' in dp_params.keys() and dp_params['enh_img_dir']:
-#             print 'MITfivekDataProvider_4 init enh_img_dir',dp_params['enh_img_dir']            
-            self.batch_meta['enh_img_dir'] = dp_params['enh_img_dir']
-        
 
         self.regress_L_channel_only = dp_params['regress_L_channel_only']
-        print 'MITfivekDataProvider_4 regress_L_channel_only', self.regress_L_channel_only
         self.use_local_context_ftr = dp_params['use_local_context_ftr']
+        ''' flag if we compute 
+            1) mean colors for each of 25 contextual pooling regions
+            2) color histogram (32 bins each) in a,b channels for a local window centered at the segment
+        '''          
         self.use_local_context_color_ftr = dp_params['use_local_context_color_ftr']
         
+        self.IMG_GLOBAL_FTR_ID = 0
+        self.CTR_PIX_FTR_ID = 1
+        self.COLOR_BASIS_ID = 2
+        self.ENH_COLOR_ID = 3
         if self.use_local_context_ftr:
-            print 'MITfivekDataProvider_4. Use local context feature'
-        else:
-            print 'MITfivekDataProvider_4. Do not use local context feature'
-        self.imgCnnFtr_on = dp_params['cnn_global_ftr']
-        if not 'use_position_ftr' in dp_params.keys():
-            self.use_position_ftr = False
-        else:
-            self.use_position_ftr = dp_params['use_position_ftr']
-        if self.imgCnnFtr_on == 1:
-            print 'use CNN global image feature'
-            self.imgCnnFtr_ID = 0
-            self.IMG_GLOBAL_FTR_ID = 1
-            self.CTR_PIX_FTR_ID = 2
-            self.COLOR_BASIS_ID = 3
-            self.ENH_COLOR_ID = 4
-            if self.use_local_context_ftr:
-                self.PIX_CONTEXT_SEM_FTR_ID = 5
-                if self.use_position_ftr:
-                    self.PIX_POSITION_FTR = 6
-            elif self.use_position_ftr:
-                self.PIX_POSITION_FTR = 5
-        else:
-            print 'not use CNN global image feature'
-            self.IMG_GLOBAL_FTR_ID = 0
-            self.CTR_PIX_FTR_ID = 1
-            self.COLOR_BASIS_ID = 2
-            self.ENH_COLOR_ID = 3
-            if self.use_local_context_ftr:
-                self.PIX_CONTEXT_SEM_FTR_ID = 4
-                if self.use_position_ftr:
-                    self.PIX_POSITION_FTR = 5
-                    self.CONTEXTCOLOR_FTR = 6
-                    self.CONTEXT_PIX_NUM_FTR = 7
-                else:
-                    self.CONTEXTCOLOR_FTR = 5
-                    self.CONTEXT_PIX_NUM_FTR = 6
-            elif self.use_position_ftr:
-                self.PIX_POSITION_FTR = 4            
+            self.PIX_CONTEXT_SEM_FTR_ID = 4
+            self.PIX_COLOR_HIST_FTR = 5
+            self.CONTEXTCOLOR_FTR = 6         
         
         self.local_context_paras = self.batch_meta['local_context_paras']
         if self.use_local_context_ftr:
             self.pixContextSemMean = self.batch_meta['pixContextSemMean']
             if self.use_local_context_color_ftr:
                 self.pixContextColorMean = self.batch_meta['pixContextColorMean']
-                self.pixContextPixNumMean = self.batch_meta['pixContextPixNumMean']
-#             print 'pix_local_context_std_dev',self.pix_local_context_std_dev
-#         if 'local_context_color_mean' in self.batch_meta.keys():
-#             self.local_context_color_mean = self.batch_meta['local_context_color_mean']
-#             self.local_context_color_paras = self.batch_meta['local_context_color_paras']
-#             self.context_mean_color_mean = self.batch_meta['context_mean_color_mean']
-#             print 'MITfivekDataProvider_4.__init__ context_mean_color_mean',self.context_mean_color_mean
-                
-        self.imgCnnFtr = self.batch_meta['imgCnnFtr'].transpose()
-        self.imgCnnFtr = np.require(self.imgCnnFtr, dtype=np.single, \
-                                    requirements='C')
-        
-        if 'in_img_global_ftr_dir' in self.batch_meta.keys():
-            self.img_global_ftr=[]
-            for i in range(len(self.batch_meta['in_imgs'])):
-                globalFtrPath=os.path.join(self.batch_meta['in_img_global_ftr_dir'],self.batch_meta['in_imgs'][i][:-4])
-                globalFtr=unpickle(globalFtrPath)['pix_global_ftr']
-                self.img_global_ftr += [globalFtr]
-            self.img_global_ftr = np.vstack(self.img_global_ftr) 
-        else:
-            img_global_ftr_data = unpickle(os.path.join(self.batch_meta['in_img_dir'], 'img_global_ftr'))
-            self.img_global_ftr = img_global_ftr_data['img_global_ftr_l2'].transpose()
-        self.img_global_ftr = np.require(self.img_global_ftr, dtype=np.single, \
-                                    requirements='C')   
-        print 'img_global_ftr shape',self.img_global_ftr.shape     
-#         self.label_dim = self.batch_meta['label_dim']
+                self.pixColorHistMean = self.batch_meta['pixColorHistMean']
+                self.local_context_color_paras = self.batch_meta['local_context_color_paras']
+
+        self.img_global_ftr = {}
+        for img in self.batch_meta['imgs']:
+            globalFtrPath=os.path.join(self.batch_meta['in_img_global_ftr_dir'],img)
+            globalFtr=unpickle(globalFtrPath)['pix_global_ftr']
+            self.img_global_ftr[img]=globalFtr
+           
         self.img_size = self.batch_meta['img_size']  # 1 when no patch exists
         self.num_colors = self.batch_meta['num_colors']
-        
-        if 'patch_img_size' in self.batch_meta.keys():
-            self.patch_img_size = self.batch_meta['patch_img_size']
-#         if not self.img_size == 1:
-#             self.ct_px_ftr_mean = self.batch_meta['central_pixel_feature_mean']
-
-                        
-        self.nb_hs = 3
-        
+                
         print '--------complete MITfivekDataProvider_4 init-------'
         
     def get_img_size_num_colors(self):
@@ -518,144 +455,86 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
         
     '''in testing stage, prepare batch data to feed into NN'''
     def prepare_batch_data(self, patches, aux_data):
-        ''' whenever context feature is used, context color feature (histogram and mean) are used as well '''
-        self.use_local_context_color_ftr = self.use_local_context_color_ftr
         new_setting = 1
         if not hasattr(self, 'patch_img_size'):
-            # shape: pix_ftr_dim * n
+            ''' shape: pix_ftr_dim * n '''
             in_pix_ftr = patches
             assert len(patches.shape) == 2
             num = patches.shape[1]
         else:
-            # patches.shape = n * h * w * ch
             num, side, side, ch = patches.shape[0], patches.shape[1], patches.shape[2], patches.shape[3]
             patches_view = np.swapaxes(patches, 0, 3)
-#         print 'prepare_batch_data num:%d' % num
-#         # patches.shape = ch * h * w * n        
-#         ch, side, side, num = patches.shape[0], patches.shape[1], patches.shape[2], patches.shape[3]
-#         patches_view = patches
+
+
         if self.use_local_context_ftr:
-            if self.use_position_ftr:
-                in_img_ids, gt_color, pixContextSemFtr, pix_pos = \
-                aux_data[0], aux_data[1], aux_data[2], aux_data[3]
+            if self.use_local_context_color_ftr:
+                in_img_nms, gt_color, pix_cont_sem_ftr, pix_color_hist_ftr, \
+                pix_cont_color_ftr = aux_data[0], aux_data[1], aux_data[2], aux_data[3], aux_data[4]
             else:
-                if self.use_local_context_color_ftr:
-                    in_img_ids, gt_color, pixContextSemFtr, pixContextColorFtr, pixContextPixNumFtr = \
-                    aux_data[0], aux_data[1], aux_data[2], aux_data[3], aux_data[4]
-                else:
-                    in_img_ids, gt_color, pixContextSemFtr = \
-                    aux_data[0], aux_data[1], aux_data[2]                    
-                    
-#                 print 'prepare batch data:pixContextColorFtr shape',\
-#                 pixContextColorFtr.shape
-#             print 'prepare_batch_data context_frr shape',pixContextSemFtr.shape
+                in_img_nms, gt_color, pix_cont_sem_ftr = \
+                aux_data[0], aux_data[1], aux_data[2]                    
         else:
-            if self.use_position_ftr:
-                in_img_ids, gt_color, pix_pos = \
-                aux_data[0], aux_data[1], aux_data[2]     
-            else:
-                in_img_ids, gt_color = aux_data[0], aux_data[1]
-        assert num == len(in_img_ids)
+            in_img_nms, gt_color = aux_data[0], aux_data[1]
+        assert num == len(in_img_nms)
         
         st_time = time.time()
-#         img_ftr_dim = self.imgCnnFtr.shape[0]    
-        if self.imgCnnFtr_on == 1:
-            cnn_global_ftr_dim = self.get_data_dims(self.imgCnnFtr_ID)
-            cnn_global_ftr = np.tile(self.imgCnnFtr[in_img_ids[0], :].reshape((cnn_global_ftr_dim, 1)), (1, num))
 
         img_global_ftr_dim = self.get_data_dims(self.IMG_GLOBAL_FTR_ID)
-        img_global_ftr = np.tile(self.img_global_ftr[in_img_ids[0], :].reshape((img_global_ftr_dim, 1)), (1, num))
-
-
-        elapsed_1 = time.time() - st_time
-        if not hasattr(self, 'patch_img_size'):
-            pix_ftr = in_pix_ftr - self.data_mean[:, np.newaxis]
-        else:
-            patches_view = patches_view.reshape((ch * side * side, num))
-            pix_ftr = patches_view - self.batch_meta['patch_data_mean']
-#         if self.img_size == 1:
-#             pix_ftr = in_pix_ftr - self.data_mean[:, np.newaxis]
-#         else:
-#             pix_ftr = get_central_pixel_feature(patches_view, self.nb_hs)
-#             pix_ftr = pix_ftr - self.ct_px_ftr_mean[:, np.newaxis]
-#         if new_setting==1:
-#             pix_ftr *= 2        
         
-#         dummy_labels = np.zeros((self.get_data_dims(1), num), dtype=np.single)
+        if not in_img_nms[0] in self.img_global_ftr.keys():
+            '''new images appear in testing image list'''
+            globalFtrPath=os.path.join(self.batch_meta['in_img_global_ftr_dir'],in_img_nms[0])
+            globalFtr=unpickle(globalFtrPath)['pix_global_ftr']
+            img_global_ftr = np.tile(globalFtr.reshape((img_global_ftr_dim, 1)), (1, num))                 
+        else:
+            img_global_ftr = np.tile(self.img_global_ftr[in_img_nms[0]].reshape((img_global_ftr_dim, 1)), (1, num))
+        
+        elapsed_1 = time.time() - st_time
+        pix_ftr = in_pix_ftr - self.data_mean[:, np.newaxis]
+ 
         dummy_color_basis = np.zeros((self.get_data_dims(self.COLOR_BASIS_ID), num), dtype=np.single)
         
         if self.regress_L_channel_only:
             gt_color = gt_color[0, :].reshape((1, num))
         
         if self.use_local_context_ftr:
-            pixContextSemFtr = pixContextSemFtr - self.pixContextSemMean[:, np.newaxis]
+            pix_cont_sem_ftr = pix_cont_sem_ftr - self.pixContextSemMean[:, np.newaxis]
             if self.use_local_context_color_ftr:
-                pixContextColorFtr = pixContextColorFtr - self.pixContextColorMean[:, np.newaxis]
-                pixContextPixNumFtr = pixContextPixNumFtr - self.pixContextPixNumMean[:, np.newaxis]
-                        
-        if self.use_position_ftr:
-            pix_pos = np.require(pix_pos, dtype=np.single, requirements='C')
-#          context_mean_color_ftr = context_mean_color_ftr - self.context_mean_color_mean[:, np.newaxis]
-#             context_mean_color_ftr = np.require(context_mean_color_ftr, dtype=np.single, requirements='C')
-            
-#             print 'prepare batch data. pixContextColorFtr shape',pixContextColorFtr.shape
-        
+                pix_cont_color_ftr = pix_cont_color_ftr - self.pixContextColorMean[:, np.newaxis]
+                pix_color_hist_ftr = pix_color_hist_ftr - self.pixColorHistMean[:, np.newaxis]
+
         if new_setting == 1:
             img_global_ftr *= 100        
             pix_ftr *= 1
-            if self.use_position_ftr:
-                pix_pos *= 10
             if self.use_local_context_ftr:
-                pixContextSemFtr *= 1e2
+                pix_cont_sem_ftr *= 50
                 if self.use_local_context_color_ftr:
-                    pixContextColorFtr *= 4e-4
-                    pixContextPixNumFtr *= 4e-2
+                    pix_color_hist_ftr *= 2e2
+                    pix_cont_color_ftr *= 2
                             
         st_time = time.time()
-        if self.imgCnnFtr_on == 1:
-            cnn_global_ftr = np.require(cnn_global_ftr, dtype=np.single, requirements='C')
         img_global_ftr = np.require(img_global_ftr, dtype=np.single, requirements='C')
         pix_ftr = np.require(pix_ftr, dtype=np.single, requirements='C')
         dummy_color_basis = np.require(dummy_color_basis, dtype=np.single, requirements='C')        
         gt_color = np.require(gt_color, dtype=np.single, requirements='C')
         if self.use_local_context_ftr:
-            pixContextSemFtr = np.require(pixContextSemFtr, dtype=np.single, requirements='C')                      
+            pix_cont_sem_ftr = np.require(pix_cont_sem_ftr, dtype=np.single, requirements='C')                      
             if self.use_local_context_color_ftr:
-                pixContextColorFtr = np.require(pixContextColorFtr, dtype=np.single, requirements='C')
-                pixContextPixNumFtr = np.require(pixContextPixNumFtr, dtype=np.single, requirements='C')
+                pix_cont_color_ftr = np.require(pix_cont_color_ftr, dtype=np.single, requirements='C')
+                pix_color_hist_ftr = np.require(pix_color_hist_ftr, dtype=np.single, requirements='C')
 
         
         elapsed_2 = time.time() - st_time
         if self.use_local_context_ftr:
-            if self.imgCnnFtr_on == 1:
-                if self.use_position_ftr:
-                    return [cnn_global_ftr, img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pixContextSemFtr, pix_pos], \
-                        [elapsed_1, elapsed_2]                    
-                else:
-                    return [cnn_global_ftr, img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pixContextSemFtr], \
-                            [elapsed_1, elapsed_2]
+            if self.use_local_context_color_ftr:
+                return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pix_cont_sem_ftr, \
+                        pix_color_hist_ftr, pix_cont_color_ftr], \
+                    [elapsed_1, elapsed_2]                        
             else:
-                if self.use_position_ftr:
-                    return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pixContextSemFtr, pix_pos], \
-                        [elapsed_1, elapsed_2]                    
-                else:
-                    if self.use_local_context_color_ftr:
-                        return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pixContextSemFtr, pixContextColorFtr, pixContextPixNumFtr], \
-                            [elapsed_1, elapsed_2]                        
-                    else:
-                        return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pixContextSemFtr], \
-                            [elapsed_1, elapsed_2]
+                return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pix_cont_sem_ftr], \
+                    [elapsed_1, elapsed_2]
         else:
-            if self.imgCnnFtr_on == 1:
-                if self.use_position_ftr:
-                    return [cnn_global_ftr, img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pix_pos], [elapsed_1, elapsed_2]
-                else:
-                    return [cnn_global_ftr, img_global_ftr, pix_ftr, dummy_color_basis, gt_color], [elapsed_1, elapsed_2]
-            else:
-                if self.use_position_ftr:
-                    return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color, pix_pos], [elapsed_1, elapsed_2]
-                else:
-                    return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color], [elapsed_1, elapsed_2]
+            return [img_global_ftr, pix_ftr, dummy_color_basis, gt_color], [elapsed_1, elapsed_2]
 
 
     def load_batch_data(self, zero_mean_data=0):
@@ -668,32 +547,27 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
 
         st_time = time.time()
         num_imgs = curr_batchdat_dic['data'].shape[1]
-        print 'num_imgs', num_imgs
-
-        if self.imgCnnFtr_on == 1:
-            cnn_global_ftr = self.imgCnnFtr[curr_batchdat_dic['patch_to_imageID'], :]   
             
-        img_global_ftr = self.img_global_ftr[curr_batchdat_dic['patch_to_imageID'], :]
-
-
-#         img_global_ftr = img_global_ftr.transpose()             
+        img_global_ftr_dim = self.get_data_dims(self.IMG_GLOBAL_FTR_ID)
+        img_global_ftr = np.zeros((num_imgs,img_global_ftr_dim),dtype=np.single)
+        assert num_imgs == len(curr_batchdat_dic['patch_to_image_name'])
+        for i in range(num_imgs):
+            img_global_ftr[i,:]=self.img_global_ftr[curr_batchdat_dic['patch_to_image_name'][i]]
+            
         elapsed3 = time.time() - st_time
-#         print 'MITfivekDataProvider_4 get_next_batch elapsed3:%f' % elapsed3
         
         st_time = time.time()
         if not hasattr(self, 'patch_img_size'):
             pix_ftr = curr_batchdat_dic['data'] - self.data_mean[:, np.newaxis]               
-#             pix_ftr = curr_bat_dat_dic['data'] - self.data_mean[:,np.newaxis]
         else:
             pix_ftr = curr_batchdat_dic['patch_data'] - self.batch_meta['patch_data_mean'][:, np.newaxis]     
             
-        # shape: num_imgs*segment_random_sample_num*3
+        ''' shape: num_imgs*segment_random_sample_num*3 '''
         in_pix_colors = curr_batchdat_dic['in_pix_data']
         segment_random_sample_num = in_pix_colors.shape[1]
-        print 'segment_random_sample_num', segment_random_sample_num
         assert num_imgs == in_pix_colors.shape[0]
         in_pix_colors = in_pix_colors.reshape((num_imgs * segment_random_sample_num, 3))
-        # shape: (num_imgs*segment_random_sample_num,10)
+        ''' shape: (num_imgs*segment_random_sample_num,10) '''
         in_pix_color_basis = quad_poly_color_basis(in_pix_colors)
         basis_dim = in_pix_color_basis.shape[1]
         assert basis_dim == 10
@@ -712,45 +586,26 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
         else:
             enh_pix_colors = enh_pix_colors.reshape((segment_random_sample_num * 3, num_imgs))
         if self.use_local_context_ftr:
-            # dim * num_imgs
+            ''' shape: dim * num_imgs '''
             pixContextSemFtr = curr_batchdat_dic['pixContextSemFtr'] - self.pixContextSemMean[:, np.newaxis]
-#             nanFlag = np.sum(np.isnan(pixContextSemFtr))
-#             if nanFlag:
-#                 print 'find NaN in pixContextSemFtr'
             if self.use_local_context_color_ftr:
-                pixContextColorFtr = curr_batchdat_dic['pixContextColor'] - self.pixContextColorMean[:, np.newaxis]
-                print 'pixContextColorFtr shape', pixContextColorFtr.shape
-                pixContextPixNumFtr = curr_batchdat_dic['pixContextPixNum'] - self.pixContextPixNumMean[:, np.newaxis]
-                print 'pixContextPixNumFtr shape', pixContextPixNumFtr.shape
-#         ct_pix_color = get_central_pixel_raw_color(curr_bat_dat_dic['data'].reshape\
-#          ((self.num_colors, self.img_size, self.img_size, num_imgs)), self.nb_hs)
-#         ct_pix_color_basis = quad_poly_color_basis(ct_pix_color)
-        # TO DO, get gt_color for all samples pixels within segment#         print 'num_imgs %d' % num_imgs
-#         print 'gt_color shape',gt_color.shape
-        
-        if self.use_position_ftr:
-            pix_pos = curr_batchdat_dic['in_pix_pos']
+                pix_cont_color_ftr = curr_batchdat_dic['pixContextColor'] - self.pixContextColorMean[:, np.newaxis]
+                pix_color_hist_ftr = curr_batchdat_dic['pixColorHist'] - self.pixColorHistMean[:, np.newaxis]
   
-            
-                
         elapsed4 = time.time() - st_time
-#         print 'MITfivekDataProvider_4 get_next_batch elapsed4:%f' % elapsed4
         
         if new_setting == 1:
             img_global_ftr *= 100        
             pix_ftr *= 1
-            if self.use_position_ftr:
-                pix_pos *= 10
             if self.use_local_context_ftr:
-                pixContextSemFtr *= 1e2
+                pixContextSemFtr *= 50
                 if self.use_local_context_color_ftr:
-                    pixContextColorFtr *= 4e-4
-                    pixContextPixNumFtr *= 4e-2
+                    pix_color_hist_ftr *= 2e2
+                    pix_cont_color_ftr *= 2
+                    
             
             
-        st_time = time.time()
-        if self.imgCnnFtr_on == 1:
-            cnn_global_ftr = np.require(cnn_global_ftr.transpose(), dtype=np.single, requirements='C')   
+        st_time = time.time()   
         img_global_ftr = np.require(img_global_ftr.transpose(), dtype=np.single, requirements='C')
         pix_ftr = np.require(pix_ftr, dtype=np.single, requirements='C')              
         in_pix_color_basis = np.require(in_pix_color_basis, dtype=np.single, requirements='C')
@@ -758,137 +613,308 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
         if self.use_local_context_ftr:
             pixContextSemFtr = np.require(pixContextSemFtr, dtype=np.single, requirements='C')                      
             if self.use_local_context_color_ftr:
+                pix_cont_color_ftr = np.require(pix_cont_color_ftr, dtype=np.single, requirements='C')
+                pix_color_hist_ftr = np.require(pix_color_hist_ftr, dtype=np.single, requirements='C')
+            
+        elapsed5 = time.time() - st_time
+#         print 'MITfivekDataProvider_4 get_next_batch elapsed3,elapsed4,elapsed5:%f %f %f'\
+#         % (elapsed3, elapsed4, elapsed5)
+#         print 'shapes: img_global_ftr', img_global_ftr.shape, 'pix_ftr', pix_ftr.shape, \
+#         'in_pix_color_basis', in_pix_color_basis.shape, 'enh_pix_colors', enh_pix_colors.shape        
+#         if self.use_local_context_ftr:
+#             print 'shapes: pixContextSemFtr',pixContextSemFtr.shape
+        
+        if self.use_local_context_ftr:
+            if self.use_local_context_color_ftr:
+                return epoch, batch_idx, batch_num, epoc_batch_perm, \
+                [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pixContextSemFtr, \
+                 pix_color_hist_ftr, pix_cont_color_ftr]                        
+            else:
+                return epoch, batch_idx, batch_num, epoc_batch_perm, \
+                [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pixContextSemFtr]
+                        
+        else:
+            return epoch, batch_idx, batch_num, epoc_batch_perm, \
+                    [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors]                   
+                             
+    def get_data_dims(self, idx=0):
+        lc_paras = self.local_context_paras
+        if self.use_local_context_color_ftr:
+            lc_color_paras = self.local_context_color_paras
+            
+        if idx == self.IMG_GLOBAL_FTR_ID:
+            for key in self.img_global_ftr.keys():
+                return self.img_global_ftr[key].shape[0]
+        elif idx == self.CTR_PIX_FTR_ID:
+            if not hasattr(self, 'patch_img_size'):
+                if CENTRAL_PX_FEATURE_DIM < 4:
+                    return CENTRAL_PX_FEATURE_DIM
+                else:
+                    return next_4_multiple(CENTRAL_PX_FEATURE_DIM)
+            else:
+                return self.batch_meta['patch_num_vis']                    
+        elif idx == self.COLOR_BASIS_ID:
+            return 10
+        elif idx == self.ENH_COLOR_ID:
+            return 1 if self.regress_L_channel_only else 3
+        elif self.use_local_context_ftr:
+            if idx == self.PIX_CONTEXT_SEM_FTR_ID:
+                return lc_paras['label_num'] * lc_paras['pool_region_num'] 
+            else:
+                if idx == self.CONTEXTCOLOR_FTR:
+                    return lc_paras['pool_region_num'] * 3
+                elif idx == self.PIX_COLOR_HIST_FTR:
+                    return lc_color_paras['hist_bin_num'] * 2
+                else:
+                    raise DataProviderException("data index can not exceed %d" % (self.CONTEXTCOLOR_FTR + 1))                            
+        else:
+            raise DataProviderException("data index can not exceed %d" % (self.PIX_CONTEXT_SEM_FTR_ID + 1))
+                
+                
+class MITfivekColorRegressionDataProvider(LabeledMemoryBatchDataProvider):    
+    def __init__(self, libModel, data_dir, batch_range, init_epoch=1,
+                 init_batch_idx=None, epochBatchPerm=None, dp_params={}, test=False):
+        LabeledMemoryBatchDataProvider.__init__(self, libModel, data_dir, batch_range, init_epoch,
+                 init_batch_idx, epochBatchPerm, dp_params, test)
+        self.regress_L_channel_only = dp_params['regress_L_channel_only']
+        self.use_local_context_ftr = dp_params['use_local_context_ftr']
+        ''' flag if we compute 
+            1) mean colors for each of 25 contextual pooling regions
+            2) color histogram in a,b channels for a local window centered at the segment
+        '''          
+        self.use_local_context_color_ftr = dp_params['use_local_context_color_ftr']
+
+        self.IMG_GLOBAL_FTR_ID = 0
+        self.CTR_PIX_FTR_ID = 1
+        self.ENH_COLOR_ID = 2
+        if self.use_local_context_ftr:
+            self.PIX_CONTEXT_SEM_FTR_ID = 3
+            self.CONTEXTCOLOR_FTR = 4
+            self.PIX_COLOR_HIST_FTR = 5         
+        
+        self.local_context_paras = self.batch_meta['local_context_paras']
+        if self.use_local_context_ftr:
+            self.pixContextSemMean = self.batch_meta['pixContextSemMean']
+            if self.use_local_context_color_ftr:
+                self.pixContextColorMean = self.batch_meta['pixContextColorMean']
+                self.pixColorHistMean = self.batch_meta['pixColorHistMean']
+        
+        self.img_global_ftr = {}
+        for img in self.batch_meta['imgs']:
+            globalFtrPath=os.path.join(self.batch_meta['in_img_global_ftr_dir'],img)
+            globalFtr=unpickle(globalFtrPath)['pix_global_ftr']
+            self.img_global_ftr[img]=globalFtr
+            
+        self.img_size = self.batch_meta['img_size']  
+        self.num_colors = self.batch_meta['num_colors']        
+        print '--------complete MITfivekColorRegressionDataProvider init-------'
+        
+    def get_img_size_num_colors(self):
+        return self.img_size, self.num_colors        
+        
+        
+    def get_batches_meta(self):
+        return self.batch_meta
+        
+    '''in testing stage, prepare batch data to feed into NN'''
+    def prepare_batch_data(self, patches, aux_data):
+        new_setting = 1
+        '''shape: pix_ftr_dim * n'''
+        in_pix_ftr = patches
+        assert len(patches.shape) == 2
+        num = patches.shape[1]
+
+        if self.use_local_context_ftr:
+            if self.use_local_context_color_ftr:
+                in_img_nms, gt_color, pixContextSemFtr, pixContextColorFtr, pixContextPixNumFtr = \
+                aux_data[0], aux_data[1], aux_data[2], aux_data[3], aux_data[4]
+            else:
+                in_img_nms, gt_color, pixContextSemFtr = \
+                aux_data[0], aux_data[1], aux_data[2]                    
+        else:
+            in_img_nms, gt_color = aux_data[0], aux_data[1]
+        assert num == len(in_img_nms)
+        
+        st_time = time.time()
+
+        img_global_ftr_dim = self.get_data_dims(self.IMG_GLOBAL_FTR_ID)
+        
+        img_global_ftr = np.tile(self.img_global_ftr[in_img_nms[0]].reshape((img_global_ftr_dim, 1)), (1, num))        
+
+        elapsed_1 = time.time() - st_time
+        pix_ftr = in_pix_ftr - self.data_mean[:, np.newaxis]
+        
+        if self.regress_L_channel_only:
+            gt_color = gt_color[0, :].reshape((1, num))
+        
+        if self.use_local_context_ftr:
+            pixContextSemFtr = pixContextSemFtr - self.pixContextSemMean[:, np.newaxis]
+            if self.use_local_context_color_ftr:
+                pixContextColorFtr = pixContextColorFtr - self.pixContextColorMean[:, np.newaxis]
+                pixContextPixNumFtr = pixContextPixNumFtr - self.pixColorHistMean[:, np.newaxis]
+        
+        if new_setting == 1:
+            img_global_ftr *= 100        
+            if self.use_local_context_ftr:
+                pixContextSemFtr *= 1e2
+                if self.use_local_context_color_ftr:
+                    pixContextColorFtr *= 4e-4
+                    pixContextPixNumFtr *= 4e-2
+            pix_ftr *= 1
+                            
+        st_time = time.time()
+        img_global_ftr = np.require(img_global_ftr, dtype=np.single, requirements='C')
+        pix_ftr = np.require(pix_ftr, dtype=np.single, requirements='C')
+        gt_color = np.require(gt_color, dtype=np.single, requirements='C')
+        if self.use_local_context_ftr:
+            pixContextSemFtr = np.require(pixContextSemFtr, dtype=np.single, requirements='C')                      
+            if self.use_local_context_color_ftr:
                 pixContextColorFtr = np.require(pixContextColorFtr, dtype=np.single, requirements='C')
                 pixContextPixNumFtr = np.require(pixContextPixNumFtr, dtype=np.single, requirements='C')
 
-        if self.use_position_ftr:
-            pix_pos = np.require(pix_pos, dtype=np.single, requirements='C')
+        
+        elapsed_2 = time.time() - st_time
+        if self.use_local_context_ftr:
+            if self.use_local_context_color_ftr:
+                return [img_global_ftr, pix_ftr, gt_color, pixContextSemFtr, \
+                        pixContextColorFtr, pixContextPixNumFtr], \
+                    [elapsed_1, elapsed_2]                        
+            else:
+                return [img_global_ftr, pix_ftr, gt_color, pixContextSemFtr], \
+                    [elapsed_1, elapsed_2]
+        else:
+            return [img_global_ftr, pix_ftr, gt_color], [elapsed_1, elapsed_2]
+        
+    def load_batch_data(self, zero_mean_data=0):
+        LabeledMemoryBatchDataProvider.load_batch_data(self, zero_mean_data)
+
+    def get_next_batch(self):
+        new_setting = 1
+        epoch, batch_idx, batch_num, epoc_batch_perm, curr_batchdat_dic = \
+        LabeledMemoryBatchDataProvider.get_next_batch(self)
+
+        st_time = time.time()
+        num_sams = curr_batchdat_dic['data'].shape[1]        
+        ''' in_pix_colors shape: (num_sams,segment_random_sample_num,3) '''
+        in_pix_colors = curr_batchdat_dic['in_pix_data']
+        segment_random_sample_num = in_pix_colors.shape[1]
+        assert num_sams == in_pix_colors.shape[0]        
+        
+        img_global_ftr_dim = self.get_data_dims(self.IMG_GLOBAL_FTR_ID)
+        img_global_ftr = np.zeros((num_sams,img_global_ftr_dim),dtype=np.single)
+        assert num_sams == len(curr_batchdat_dic['patch_to_image_name'])
+        for i in range(num_sams):
+            img_global_ftr[i,:]=self.img_global_ftr[curr_batchdat_dic['patch_to_image_name'][i]]
+                    
+        elapsed3 = time.time() - st_time
+        
+        st_time = time.time()
+        
+        
+        if self.use_local_context_ftr:
+            ''' shape: (dim, num_sams) '''
+            pixContextSemFtr = curr_batchdat_dic['pixContextSemFtr'] - self.pixContextSemMean[:, np.newaxis]
+            pixContextSemFtr = np.repeat(pixContextSemFtr, segment_random_sample_num, axis=1)
+            if self.use_local_context_color_ftr:
+                pixContextColorFtr = curr_batchdat_dic['pixContextColor'] - self.pixContextColorMean[:, np.newaxis]
+                pixContextColorFtr = np.repeat(pixContextColorFtr, segment_random_sample_num, axis=1)
+                pixContextPixNumFtr = curr_batchdat_dic['pixContextPixNum'] - self.pixColorHistMean[:, np.newaxis]
+                pixContextPixNumFtr = np.repeat(pixContextPixNumFtr,segment_random_sample_num, axis=1)
+                
+        '''pix_ftr shape:(3,num_sams,segment_random_sample_num)'''
+        pix_ftr = in_pix_colors.swapaxes(0,2).swapaxes(1,2)
+        pix_ftr = pix_ftr.reshape((3,num_sams*segment_random_sample_num)) - self.data_mean[:,np.newaxis]
+        
+        ''' enh_pix_colors shape: (segment_random_sample_num * 3,num_sams) '''
+        enh_pix_colors = curr_batchdat_dic['labels']
+        assert enh_pix_colors.shape[0] / 3 == segment_random_sample_num
+        assert enh_pix_colors.shape[1] == num_sams
+        enh_pix_colors = enh_pix_colors.reshape((segment_random_sample_num, 3, num_sams))
+        if self.regress_L_channel_only:
+            enh_pix_colors = enh_pix_colors[:, 0, :].reshape((segment_random_sample_num, 1, num_sams))
+        enh_ch = 1 if self.regress_L_channel_only else 3
+        '''enh_pix_colors shape:(enh_ch,num_sams,segment_random_sample_num) '''
+        enh_pix_colors = enh_pix_colors.swapaxes(0,1).swapaxes(1,2)
+        enh_pix_colors = enh_pix_colors.reshape((enh_ch,num_sams*segment_random_sample_num))
+        
+        elapsed4 = time.time() - st_time
+        
+        if new_setting == 1:
+            img_global_ftr *= 100        
+            if self.use_local_context_ftr:
+                pixContextSemFtr *= 1e2
+                if self.use_local_context_color_ftr:
+                    pixContextColorFtr *= 4e-4
+                    pixContextPixNumFtr *= 4e-2
+            pix_ftr *= 1
+        
+        rand_perm = range(num_sams*segment_random_sample_num)
+        random.shuffle(rand_perm)
+     
+        st_time = time.time()  
+        img_global_ftr = img_global_ftr[rand_perm,:]
+        img_global_ftr = np.require(img_global_ftr.transpose(), dtype=np.single, requirements='C')
+        if self.use_local_context_ftr:
+            pixContextSemFtr = pixContextSemFtr[:,rand_perm]
+            pixContextSemFtr = np.require(pixContextSemFtr, dtype=np.single, requirements='C')                      
+            if self.use_local_context_color_ftr:
+                pixContextColorFtr = pixContextColorFtr[:, rand_perm]
+                pixContextColorFtr = np.require(pixContextColorFtr, dtype=np.single, requirements='C')
+                pixContextPixNumFtr = pixContextPixNumFtr[:,rand_perm]
+                pixContextPixNumFtr = np.require(pixContextPixNumFtr, dtype=np.single, requirements='C')    
+        pix_ftr=pix_ftr[:,rand_perm]    
+        pix_ftr = np.require(pix_ftr, dtype=np.single, requirements='C')              
+        enh_pix_colors=enh_pix_colors[:,rand_perm]
+        enh_pix_colors = np.require(enh_pix_colors, dtype=np.single, requirements='C')
+
             
         elapsed5 = time.time() - st_time
-        print 'MITfivekDataProvider_4 get_next_batch elapsed3,elapsed4,elapsed5:%f %f %f'\
-        % (elapsed3, elapsed4, elapsed5)
-        
-        print 'shapes: img_global_ftr', img_global_ftr.shape, 'pix_ftr', pix_ftr.shape, \
-        'in_pix_color_basis', in_pix_color_basis.shape, 'enh_pix_colors', enh_pix_colors.shape        
+#         print 'MITfivekColorRegressionDataProvider get_next_batch elapsed3,elapsed4,elapsed5:%f %f %f'\
+#         % (elapsed3, elapsed4, elapsed5)
+#         print 'shapes: img_global_ftr', img_global_ftr.shape, 'pix_ftr', pix_ftr.shape, \
+#         'enh_pix_colors', enh_pix_colors.shape        
+#         if self.use_local_context_ftr:
+#             print 'shapes: pixContextSemFtr',pixContextSemFtr.shape
+
         if self.use_local_context_ftr:
-            print 'shapes: pixContextSemFtr',pixContextSemFtr.shape
-        
-        if self.use_local_context_ftr:
-            if self.imgCnnFtr_on == 1:
-                if self.use_position_ftr:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                    [cnn_global_ftr, img_global_ftr, pix_ftr, in_pix_color_basis, \
-                     enh_pix_colors, pixContextSemFtr, pix_pos]
-                else:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                    [cnn_global_ftr, img_global_ftr, pix_ftr, in_pix_color_basis, \
-                     enh_pix_colors, pixContextSemFtr]                    
+            if self.use_local_context_color_ftr:
+                return epoch, batch_idx, batch_num, epoc_batch_perm, \
+                [img_global_ftr, pix_ftr, enh_pix_colors, pixContextSemFtr, \
+                 pixContextColorFtr, pixContextPixNumFtr]                        
             else:
-                if self.use_position_ftr:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                    [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pixContextSemFtr, pix_pos]                    
-                else:
-                    if self.use_local_context_color_ftr:
-                        print 'use_local_context_ftr use_local_context_color_ftr'
-                        return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                        [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pixContextSemFtr, \
-                         pixContextColorFtr, pixContextPixNumFtr]                        
-                    else:
-                        return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                        [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pixContextSemFtr]
+                return epoch, batch_idx, batch_num, epoc_batch_perm, \
+                [img_global_ftr, pix_ftr, enh_pix_colors, pixContextSemFtr]
                         
         else:
-            if self.imgCnnFtr_on == 1:
-                if self.use_position_ftr:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                        [cnn_global_ftr, img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pix_pos]                        
-                else:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                        [cnn_global_ftr, img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors]                   
-            else:
-                if self.use_position_ftr:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                        [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors, pix_pos]                     
-                else:
-                    return epoch, batch_idx, batch_num, epoc_batch_perm, \
-                        [img_global_ftr, pix_ftr, in_pix_color_basis, enh_pix_colors]                   
+            return epoch, batch_idx, batch_num, epoc_batch_perm, \
+                [img_global_ftr, pix_ftr, enh_pix_colors]                   
                              
     def get_data_dims(self, idx=0):
-        # three inputs: patch pxiel, multi-dim label and pixel local features
         lc_paras = self.local_context_paras
-        if self.imgCnnFtr_on == 1:
-            if idx == self.imgCnnFtr_ID:
-                return self.imgCnnFtr.shape[1]
-            elif idx == self.IMG_GLOBAL_FTR_ID:
-                return self.img_global_ftr.shape[1]
-            elif idx == self.CTR_PIX_FTR_ID:
-                if not hasattr(self, 'patch_img_size'):
-                    if CENTRAL_PX_FEATURE_DIM < 4:
-                        return CENTRAL_PX_FEATURE_DIM
-                    else:
-                        return next_4_multiple(CENTRAL_PX_FEATURE_DIM)
-                else:
-                    return self.batch_meta['patch_num_vis']
-            elif idx == self.COLOR_BASIS_ID:
-                return 10
-            elif idx == self.ENH_COLOR_ID:
-                if self.regress_L_channel_only:
-                    return 1
-                else:
-                    return 3
-            elif self.use_local_context_ftr:
-                if idx == self.PIX_CONTEXT_SEM_FTR_ID:
-                    return lc_paras['label_num'] * lc_paras['pool_region_num'] 
-#                     return lc_paras['label_num'] * ((lc_paras['layer_num'] - 1) * lc_paras['partition_num'] + 1)
-                elif self.use_position_ftr and idx == self.PIX_POSITION_FTR:
-                    return 2
-            elif self.use_position_ftr and idx == self.PIX_POSITION_FTR:
-                return 2
+        if idx == self.IMG_GLOBAL_FTR_ID:
+            for key in self.img_global_ftr.keys():
+                return self.img_global_ftr[key].shape[0]            
+        elif idx == self.CTR_PIX_FTR_ID:
+            if CENTRAL_PX_FEATURE_DIM < 4:
+                return CENTRAL_PX_FEATURE_DIM
             else:
-                raise DataProviderException("data index can not exceed %d" % (self.ENH_COLOR_ID + 2))
+                return next_4_multiple(CENTRAL_PX_FEATURE_DIM)                   
+        elif idx == self.ENH_COLOR_ID:
+            return 1 if self.regress_L_channel_only else 3
+        elif self.use_local_context_ftr:
+            if idx == self.PIX_CONTEXT_SEM_FTR_ID:
+                return lc_paras['label_num'] * lc_paras['pool_region_num'] 
+            else:
+                if idx == self.CONTEXTCOLOR_FTR:
+                    return lc_paras['pool_region_num'] * 3
+                elif idx == self.PIX_COLOR_HIST_FTR:
+                    return lc_paras['pool_region_num']
+                else:
+                    raise DataProviderException("data index can not exceed %d" % (self.CONTEXTCOLOR_FTR + 1))                            
         else:
-            if idx == self.IMG_GLOBAL_FTR_ID:
-                return self.img_global_ftr.shape[1]
-            elif idx == self.CTR_PIX_FTR_ID:
-                if not hasattr(self, 'patch_img_size'):
-                    if CENTRAL_PX_FEATURE_DIM < 4:
-                        return CENTRAL_PX_FEATURE_DIM
-                    else:
-                        return next_4_multiple(CENTRAL_PX_FEATURE_DIM)
-                else:
-                    return self.batch_meta['patch_num_vis']                    
-            elif idx == self.COLOR_BASIS_ID:
-                return 10
-            elif idx == self.ENH_COLOR_ID:
-                return 1 if self.regress_L_channel_only else 3
-            elif self.use_local_context_ftr:
-                if idx == self.PIX_CONTEXT_SEM_FTR_ID:
-                    return lc_paras['label_num'] * lc_paras['pool_region_num'] 
-#                     return lc_paras['label_num'] * ((lc_paras['layer_num'] - 1) * lc_paras['partition_num'] + 1)
-                else:
-                    if self.use_position_ftr:
-                        if idx == self.PIX_POSITION_FTR:
-                            return 2
-                        elif idx == self.CONTEXTCOLOR_FTR:
-                            return lc_paras['pool_region_num'] * 3
-                        elif idx == self.CONTEXT_PIX_NUM_FTR:
-                            return lc_paras['pool_region_num']
-                        else:
-                            raise DataProviderException("data index can not exceed %d" % (self.CONTEXTCOLOR_FTR + 1))
-                    else:
-                        if idx == self.CONTEXTCOLOR_FTR:
-#                             print 'return CONTEXTCOLOR_FTR dim :%d' % self.local_context_color_paras['hist_bin_num'] * 2
-                            return lc_paras['pool_region_num'] * 3
-                        elif idx == self.CONTEXT_PIX_NUM_FTR:
-                            return lc_paras['pool_region_num']
-                        else:
-                            raise DataProviderException("data index can not exceed %d" % (self.CONTEXTCOLOR_FTR + 1))                            
-            elif self.use_position_ftr and idx == self.PIX_POSITION_FTR:
-                return 2
-            else:
-                raise DataProviderException("data index can not exceed %d" % (self.PIX_CONTEXT_SEM_FTR_ID + 1))
-                
-                
+            raise DataProviderException("data index can not exceed %d" % (self.PIX_CONTEXT_SEM_FTR_ID + 1))
+                            
+'''             
 class MITfivekDataProvider_gradmag(MITfivekDataProvider_4):
     def __init__(self, libModel, data_dir, batch_range, init_epoch=1,
                  init_batch_idx=None, epochBatchPerm=None, dp_params={}, test=False):
@@ -987,7 +1013,7 @@ class MITfivekDataProvider_gradmag(MITfivekDataProvider_4):
             return 1
         else:
             raise DataProviderException("data index can not exceed %d" % (self.PIX_ENH_GRADMAG_ID + 1))
-                    
+'''
     
 class TestDataProvider(LabeledMemoryBatchDataProvider):
     def __init__(self, libModel, data_dir, batch_range, init_epoch=1, init_batch_idx=None, epochBatchPerm=None, dp_params={}, test=False):

@@ -37,8 +37,7 @@ import shutil
 import platform
 import random
 from os import linesep as NL
-
-import socket  # add by LL: use hostname
+import socket 
 
 class ModelStateException(Exception):
     pass
@@ -60,7 +59,7 @@ class IGPUModel:
         for o in op.get_options_list():
             setattr(self, o.name, o.value)
 
-        # these are things that the model must remember but they're not input parameters
+        ''' these are things that the model must remember but they're not input parameters '''
         if load_dic:
             self.model_state = load_dic["model_state"]
             self.save_file = self.options["load_file"].value
@@ -79,7 +78,6 @@ class IGPUModel:
 
             epochBatchPerm = range(len(self.train_batch_range))
             random.shuffle(epochBatchPerm)
-#             epochBatchPerm[:30]=range(101,130)
 
             self.model_state["train_outputs"] = []
             self.model_state["test_outputs"] = []
@@ -110,7 +108,7 @@ class IGPUModel:
 #         self.import_model()
         self.init_model_lib()
 
-        # a quick hack. Todo
+        ''' a quick hack. Todo '''
         if hasattr(self, 'libmodel'):
             self.libmodel.setWeightsLayerEpsScale(self.weightsLayerEpsScale)
 
@@ -131,19 +129,9 @@ class IGPUModel:
         self.dp_params['use_local_context_color_ftr'] = self.use_local_context_color_ftr
         if hasattr(self,'use_position_ftr'):
             self.dp_params['use_position_ftr'] = self.use_position_ftr
-        
-        self.dp_params['cnn_global_ftr'] = self.cnn_global_ftr
-        if hasattr(self,'in_img_dir'):
-            self.dp_params['in_img_dir'] = self.in_img_dir
-        if hasattr(self, 'enh_img_dir'):
-            self.dp_params['enh_img_dir'] = self.enh_img_dir
-        if hasattr(self,'in_img_context_dir'):
-            self.dp_params['in_img_context_dir'] = self.in_img_context_dir
-             
         try:
             self.test_data_provider = DataProvider.get_instance(self.libmodel, self.data_path, self.test_batch_range,
                                                                 type=self.dp_type, dp_params=self.dp_params, test=DataProvider.DP_TEST)
-#             print "self.train_batch_range"
             self.train_data_provider = DataProvider.get_instance(self.libmodel, self.data_path, self.train_batch_range,
                                                                      self.model_state["epoch"], self.model_state["batch_idx"],
                                                                      self.model_state["epochBatchPerm"],
@@ -187,13 +175,9 @@ class IGPUModel:
         print "========================="
         next_data = self.get_next_batch()
         
-#         label_layer_idx=self.get_layer_idx("reglayer")
-#         print 'label_layer_idx',label_layer_idx
         while self.epoch <= self.num_epochs:
             data = next_data
             self.epoch, self.batch_idx, self.batchnum, self.epochBatchPerm = data[0], data[1], data[2], data[3]
-#             print 'self.epochBatchPerm'
-#             print self.epochBatchPerm
             self.print_iteration()
             sys.stdout.flush()
 
@@ -202,32 +186,15 @@ class IGPUModel:
             compute_time_py = time()
             self.start_batch(data)
 
-            # load the next batch while the current one is computing
-#             get_next_batch_st = time()
+            ''' load the next batch while the current one is computing '''
             next_data = self.get_next_batch()
-#             get_next_batch_elapsed  = time() - get_next_batch_st
-#             print 'get_next_batch elapsed time: %4.3f' % get_next_batch_elapsed
             batch_output = self.finish_batch()
-#             del data
-#             in_data = data[4]
-#             batch_size = in_data[0].shape[1]
-#             assert in_data[0].shape[1] == in_data[1].shape[1]
-#             print 'in_data 3 shape',in_data[3].shape
-#             print 'batch_size',batch_size
-#             l_pred_labels=n.zeros((batch_size,10),dtype=n.single)
-#             
-#             self.libmodel.startFeatureWriter(in_data+[l_pred_labels],label_layer_idx)
-#             self.finish_batch()
-#             Lchannel_norm2 = n.sum(in_data[3] * (in_data[1]-l_pred_labels.transpose()) ,axis=0)
-#             Lchannel_norm2 = 0.5 * n.sum(Lchannel_norm2[:1920]**2) / 1920
-#             print 'Lchannel_norm2',Lchannel_norm2
+
             
-            # train_outputs[batch_id][]['cost_layer_name'][cost_idx_in_costlayer]
             self.train_outputs += [batch_output]
             self.print_train_results()
 
             if self.get_num_batches_done() % self.testing_freq == 0:
-#                 print "==do test=="
                 self.sync_with_host()
                 # each element in list 'self.test_outputs' is [costs, numcases] where costs is a dictionary.
                 # Key is cost name and value is a list of floating numbers
@@ -237,7 +204,6 @@ class IGPUModel:
                 self.print_test_results()
                 self.print_test_status()
                 self.conditional_save()
-#                 self.multiplyWeightsLayerEpsScale()
 
             self.print_train_time(time() - compute_time_py)
             if len(next_data) > 5:
@@ -415,21 +381,17 @@ class IGPUModel:
         op.add_option("test-only", "test_only", BooleanOptionParser, "Test and quit?", default=0)
         op.add_option("zip-save", "zip_save", BooleanOptionParser, "Compress checkpoints?", default=0)
         op.add_option("test-one", "test_one", BooleanOptionParser, "Test on one batch at a time?", default=1)
-        # to remove 'gpu' option in the future
+        ''' to remove 'gpu' option in the future '''
         op.add_option("gpu", "gpu", ListOptionParser(IntegerOptionParser), "GPU override", default=OptionExpression("[0] * num_gpus"))
         op.add_option("default-gpu", "default_gpu", IntegerOptionParser, "default GPU ID", default=0)
 
-        # the option below are added for image enhancement proj
+        ''' the option below are added for image adjustment project '''
         op.add_option("use-local-context-ftr", "use_local_context_ftr", BooleanOptionParser, "use local context ftr?", default=0)
         op.add_option("use-local-context-color-ftr", "use_local_context_color_ftr", BooleanOptionParser,\
-                      "use local context color feature (e.g. mean color of pooling regions) ", default=1,requires=['use_local_context_ftr'])        
-        
-        op.add_option("use-position-ftr", "use_position_ftr", BooleanOptionParser,\
-                      "use xy position feature?", default=0)        
+                      "use local context color feature (e.g. mean color of pooling regions) ", default=0,\
+                      requires=['use_local_context_ftr'])              
         op.add_option("regress-L-channel-only", "regress_L_channel_only", BooleanOptionParser,\
                       "regress luminance(L) channel only?", default=0)
-        op.add_option("cnn-global-ftr", "cnn_global_ftr", BooleanOptionParser,\
-                      "use cnn global ftr?", default=0)
         op.add_option("in-img-dir", 'in_img_dir', StringOptionParser,
                       "overwrite input image folder in batches.meta", default='')           
         return op

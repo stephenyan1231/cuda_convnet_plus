@@ -278,12 +278,12 @@ class ConvNet(IGPUModel):
         DataProvider.register_data_provider('cifar-cropped', 'Cropped CIFAR', CroppedCIFARDataProvider)
         DataProvider.register_data_provider('imagenet', 'Imagenet', ImagenetDataProvider)
         DataProvider.register_data_provider('imagenetCropped', 'Imagenet with cropped data augmentation', CroppedImagenetDataProvider)
-#         DataProvider.register_data_provider('mitfivek', 'MIT fiveK dataset', MITfivekDataProvider)
-#         DataProvider.register_data_provider('mitfivek_2', 'MIT fiveK dataset', MITfivekDataProvider_2)
-#         DataProvider.register_data_provider('mitfivek_3', 'MIT fiveK dataset', MITfivekDataProvider_3)
+
         DataProvider.register_data_provider('mitfivek_4', 'MIT fiveK dataset', MITfivekDataProvider_4)
-        DataProvider.register_data_provider('mitfivek_gradmag', 'MIT fiveK dataset. regress gradient magnitude',\
-                                            MITfivekDataProvider_gradmag)
+        DataProvider.register_data_provider('mitfivek_colorregression', 'MIT fiveK dataset, color regression',\
+                                            MITfivekColorRegressionDataProvider)
+#         DataProvider.register_data_provider('mitfivek_gradmag', 'MIT fiveK dataset. regress gradient magnitude',\
+#                                             MITfivekDataProvider_gradmag)
         DataProvider.register_data_provider('test-reg', 'testing regression data provider', TestDataProvider)
         
         '''saliency prediction project'''

@@ -1,11 +1,11 @@
-
-
+'''Copyright (c) 2014 Zhicheng Yan (zhicheng.yan@live.com)
+'''
 import numpy as np
 from scipy import linalg as LA
 
 class PCA:
     def __init__(self,data):
-        # data: n * d array
+        ''' data: n * d array '''
         n=data.shape[0]
         self.mean = np.sum(data,0)/n
         cData=data-self.mean
@@ -20,13 +20,13 @@ class PCA:
         self.cumFracEval=self.cumSumEval/self.evalSum
                 
     def proj(self,data,varKeep=1.0):
-        # input: data: n * d array
-        # output: ret: n*d
+        ''' input: data: n * d array
+            output: ret: n*d'''
         dimKeep=np.flatnonzero(self.cumFracEval>=varKeep)[0]
         ret = np.dot(data-self.mean,self.evecs[:,range(dimKeep+1)])
         return ret
     
-    # ret: n*d
+    ''' ret: n*d '''
     def proj_topk(self,data,num_comp):
         ret = np.dot(data-self.mean,self.evecs[:,:num_comp])
         return ret
