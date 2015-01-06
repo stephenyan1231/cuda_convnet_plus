@@ -1,7 +1,7 @@
 #!/bin/bash
 
-inDataDir="${PROJ_DIR}dl-image-enhance/data/uniform_set"
-enhDataDir="${PROJ_DIR}dl-image-enhance/data/uniform_set_xpro"
+inDataDir="../../dl-image-enhance/data/uniform_set"
+enhDataDir="../../dl-image-enhance/data/uniform_set_xpro"
 layerDir=${inDataDir}/layers
 trainData=uniform_set_xpro_7K_10_batch_seg_voting_k0.10
 
