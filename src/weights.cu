@@ -55,9 +55,9 @@ void Weights::update() {
 			_weightsInc->apply(NVMatrixOps::Abs(), tmp);
 			float meanAbsWeightsInc = tmp.sum() / tmp.getNumElements();
 			printf(
-					"Weights::update _weightsInc rows,cols:%d %d meanAbsWeights:%f meanAbsWeightsInc:%10.9f\n",
+					"Weights::update _weightsInc rows,cols:%d %d meanAbsWeights:%f meanAbsWeightsInc:%10.9f meanAbsWeightIncRatio:%8.7f\n",
 					_weightsInc->getNumRows(), _weightsInc->getNumCols(),
-					meanAbsWeights, meanAbsWeightsInc);
+					meanAbsWeights, meanAbsWeightsInc, meanAbsWeightsInc/meanAbsWeights);
 			/*printf("_weights\n");
 			_weights->print(1,_weights->getNumCols());
 			printf("_weightsInc\n");

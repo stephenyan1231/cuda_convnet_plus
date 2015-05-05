@@ -33,5 +33,5 @@ export ATLAS_LIB_PATH=/usr/lib/atlas-base
 export TBB_INCLUDE_PATH=../tbb43_20141023oss/include
 export TBB_LIB_PATH=../tbb43_20141023oss/lib/intel64/gcc4.4
 
-make $*
+make -j  $*
 

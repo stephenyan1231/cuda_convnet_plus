@@ -39,13 +39,6 @@ VENDOR_ID_REGEX = re.compile('^vendor_id\s+: (\S+)')
 GPU_LOCK_NO_SCRIPT = -2
 GPU_LOCK_NO_LOCK = -1
 
-try:
-    import magic
-    ms = magic.open(magic.MAGIC_NONE)
-    ms.load()
-except ImportError:  # no magic module
-    ms = None
-
 def get_gpu_lock(id=-1):
     import imp
     lock_script_path = '/u/tang/bin/gpu_lock2.py'
@@ -72,16 +65,9 @@ def pickle(filename, data, compress=False):
 def unpickle(filename):
     if not os.path.exists(filename):
         raise UnpickleError("Path '%s' does not exist." % filename)
-    if ms is not None and ms.file(filename).startswith('gzip'):
-        fo = gzip.open(filename, 'rb')
-        dict = cPickle.load(fo)
-    elif ms is not None and ms.file(filename).startswith('Zip'):
-        fo = zipfile.ZipFile(filename, 'r', zipfile.ZIP_DEFLATED)
-        dict = cPickle.loads(fo.read('data'))
-    else:
-        fo = open(filename, 'rb')
-        dict = cPickle.load(fo)
-    
+
+    fo = open(filename, 'rb')
+    dict = cPickle.load(fo)
     fo.close()
     return dict
 
