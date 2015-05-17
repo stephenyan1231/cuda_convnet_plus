@@ -426,6 +426,8 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
             self.PIX_CONTEXT_SEM_FTR_ID = 4
             self.PIX_COLOR_HIST_FTR = 5
             self.CONTEXTCOLOR_FTR = 6         
+            
+        self.global_ftr_mean = self.batch_meta['global_ftr_mean']
         
         self.local_context_paras = self.batch_meta['local_context_paras']
         if self.use_local_context_ftr:
@@ -483,11 +485,13 @@ class MITfivekDataProvider_4(LabeledMemoryBatchDataProvider):
         
         if not in_img_nms[0] in self.img_global_ftr.keys():
             '''new images appear in testing image list'''
-            globalFtrPath=os.path.join(self.batch_meta['in_img_global_ftr_dir'],in_img_nms[0])
-            globalFtr=unpickle(globalFtrPath)['pix_global_ftr']
+            globalFtrPath = os.path.join(self.batch_meta['in_img_global_ftr_dir'],in_img_nms[0])
+            globalFtr = unpickle(globalFtrPath)['pix_global_ftr']
+            globalFtr -= self.global_ftr_mean
             img_global_ftr = np.tile(globalFtr.reshape((img_global_ftr_dim, 1)), (1, num))                 
         else:
-            img_global_ftr = np.tile(self.img_global_ftr[in_img_nms[0]].reshape((img_global_ftr_dim, 1)), (1, num))
+            globalFtr = self.img_global_ftr[in_img_nms[0]] - self.global_ftr_mean
+            img_global_ftr = np.tile(globalFtr.reshape((img_global_ftr_dim, 1)), (1, num))
         
         elapsed_1 = time.time() - st_time
         pix_ftr = in_pix_ftr - self.data_mean[:, np.newaxis]
